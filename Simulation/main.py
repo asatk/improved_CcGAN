@@ -27,7 +27,6 @@ os.chdir(wd)
 
 from utils import *
 from models import *
-from Train_cGAN import *
 from Train_CcGAN import *
 
 
@@ -122,7 +121,7 @@ for nSim in range(args.nsim):
     samples_plot_in_train, _, _ = generate_data(10, unseen_angle_grid_plot)
 
     # plot training samples and their theoretical means
-    filename_tmp = save_images_folder + 'samples_train_with_means_nSim_' + str(nSim) + '.pdf'
+    filename_tmp = save_images_folder + 'samples_train_with_means_nSim_' + str(nSim) + '.jpg'
     if not os.path.isfile(filename_tmp):
         plt.switch_backend('agg')
         mpl.style.use('seaborn')
@@ -134,23 +133,7 @@ for nSim in range(args.nsim):
         plt.savefig(filename_tmp)
 
     # preprocessing on labels
-    if args.GAN == "cGAN": #treated as classification; convert angles to class labels
-        angles_train = angles_train.astype(np.single)
-        unique_angles_train = np.sort(np.array(list(set(angles_train))))
-        angle2class = dict() #convert angle to class label
-        class2angle = dict() #convert class label to angle
-        for i in range(len(unique_angles_train)):
-            angle2class[unique_angles_train[i]]=i
-            class2angle[i] = unique_angles_train[i]
-        angles_temp = -1*np.ones(len(angles_train))
-
-        for i in range(len(angles_train)):
-            angles_temp[i] = angle2class[angles_train[i]]
-        assert np.sum(angles_temp<0)==0
-        angles_train = angles_temp
-        del angles_temp; gc.collect()
-
-    else:
+    if args.GAN == "CcGAN":
         angles_train = angles_train/(2*np.pi) #normalize to [0,1]
 
         # rule-of-thumb for the bandwidth selection
@@ -175,45 +158,12 @@ for nSim in range(args.nsim):
 
     if args.GAN == 'CcGAN':
         save_GANimages_InTrain_folder = wd + '/output/saved_images/{}_{}_{}_{}_nSim_{}_InTrain'.format(args.GAN, args.threshold_type, args.kernel_sigma, args.kappa, nSim)
-    else:
-        save_GANimages_InTrain_folder = wd + '/output/saved_images/{}_nSim_{}_InTrain'.format(args.GAN, nSim)
     os.makedirs(save_GANimages_InTrain_folder,exist_ok=True)
 
     #----------------------------------------------
-    # cGAN
-    if args.GAN == "cGAN":
-        Filename_GAN = save_models_folder + '/ckpt_{}_niters_{}_seed_{}_nSim_{}.pth'.format(args.GAN, args.niters_gan, args.seed, nSim)
-
-        if not os.path.isfile(Filename_GAN):
-            netG = cond_generator(ngpu=NGPU, nz=args.dim_gan, out_dim=n_features, num_classes=n_gaussians)
-            netD = cond_discriminator(ngpu=NGPU, input_dim = n_features, num_classes=n_gaussians)
-
-            # Start training
-            netG, netD = train_cGAN(samples_train, angles_train, netG, netD, save_models_folder = save_models_folder, plot_in_train=plot_in_train, save_images_folder = save_GANimages_InTrain_folder, samples_tar_eval = samples_plot_in_train, angle_grid_eval = unseen_angle_grid_plot, num_classes=n_gaussians, num_features = 2, unique_labels = unique_angles_train, label2class = angle2class, fig_size=fig_size, point_size=point_size)
-
-            # store model
-            torch.save({
-                'netG_state_dict': netG.state_dict(),
-            }, Filename_GAN)
-        else:
-            print("Loading pre-trained generator >>>")
-            checkpoint = torch.load(Filename_GAN)
-            netG = cond_generator(ngpu=NGPU, nz=args.dim_gan, out_dim=n_features, num_classes=n_gaussians).to(device)
-            netG.load_state_dict(checkpoint['netG_state_dict'])
-
-        # function for sampling from a trained GAN
-        def fn_sampleGAN(nfake, batch_size):
-            fake_samples, _ = SampcGAN(netG, class2label=class2angle, GAN_Latent_Length = args.dim_gan, NFAKE = nfake, batch_size = batch_size, num_classes = n_gaussians)
-            return fake_samples
-
-        def fn_sampleGAN_given_label(nfake, angle, batch_size):
-            angle = np.single(angle*2*np.pi) #back to original scale of angle [0, 2*pi]
-            fake_samples, _ = SampcGAN_given_label(netG, angle, unique_labels=unique_angles_train, label2class=angle2class, NFAKE = nfake, batch_size = batch_size)
-            return fake_samples
-
-    #----------------------------------------------
+        #----------------------------------------------
     # Concitnuous cGAN
-    elif args.GAN == "CcGAN":
+    if args.GAN == "CcGAN":
         Filename_GAN = save_models_folder + '/ckpt_{}_niters_{}_seed_{}_{}_{}_{}_nSim_{}.pth'.format(args.GAN, args.niters_gan, args.seed, args.threshold_type, args.kernel_sigma, args.kappa, nSim)
 
         if not os.path.isfile(Filename_GAN):
@@ -236,9 +186,6 @@ for nSim in range(args.nsim):
         def fn_sampleGAN_given_label(nfake, label, batch_size):
             fake_samples, _ = SampCcGAN_given_label(netG, label, path=None, NFAKE = nfake, batch_size = batch_size)
             return fake_samples
-
-
-
 
     ###############################################################################
     # Evaluation
@@ -295,9 +242,7 @@ for nSim in range(args.nsim):
 
         ### visualize fake samples
         if args.GAN == "CcGAN":
-            filename_tmp = save_images_folder + '{}_real_fake_samples_{}_sigma_{}_kappa_{}_nSim_{}.pdf'.format(args.GAN, args.threshold_type, args.kernel_sigma, args.kappa, nSim)
-        else:
-            filename_tmp = save_images_folder + '{}_real_fake_samples_nSim_{}.pdf'.format(args.GAN, nSim)
+            filename_tmp = save_images_folder + '{}_real_fake_samples_{}_sigma_{}_kappa_{}_nSim_{}.jpg'.format(args.GAN, args.threshold_type, args.kernel_sigma, args.kappa, nSim)
 
         fake_samples = np.zeros((args.n_gaussians_plot*args.n_samp_per_gaussian_plot, n_features))
         for i_tmp in range(args.n_gaussians_plot):
@@ -318,6 +263,7 @@ for nSim in range(args.nsim):
         plt.scatter(fake_samples[:, 0], fake_samples[:, 1], c='green', edgecolor='none', alpha=1, s=point_size, label="Fake samples")
         plt.legend(loc=1)
         plt.savefig(filename_tmp)
+
 # for nSim
 stop = timeit.default_timer()
 print("GAN training finished; Time elapses: {}s".format(stop - start))
