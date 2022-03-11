@@ -4,6 +4,8 @@ import matplotlib as mpl
 import numpy as np
 import os
 
+from defs import *
+
 wd = os.getcwd()
 save_npy_folder = wd + "/output/ckpt_numpy/"
 save_jpg_folder = wd + "/output/ckpt_jpg/"
@@ -16,23 +18,94 @@ N_iter = 6000
 
 in_file_fake = save_npy_folder + "N{:04d}_S{:04d}_{:d}_FAKE.npy".format(n_gaussians_plot, n_samp_per_gaussian_plot, N_iter)
 in_file_real = save_npy_folder + "N{:04d}_S{:04d}_{:d}_REAL.npy".format(n_gaussians_plot, n_samp_per_gaussian_plot, N_iter)
-out_file_jpg = save_jpg_folder + "N{:04d}_S{:04d}_{:d}_PLOT.jpg".format(n_gaussians_plot, n_samp_per_gaussian_plot, N_iter)
-
+out_file_jpg = save_jpg_folder + "N{:04d}_S{:04d}_{:d}_PLOT".format(n_gaussians_plot, n_samp_per_gaussian_plot, N_iter)
+out_file_fake = save_jpg_folder + "N{:04d}_S{:04d}_{:d}_PLOT_F".format(n_gaussians_plot, n_samp_per_gaussian_plot, N_iter)
+out_file_real = save_jpg_folder + "N{:04d}_S{:04d}_{:d}_PLOT_R".format(n_gaussians_plot, n_samp_per_gaussian_plot, N_iter)
 
 fake_samples = np.load(in_file_fake)
 real_samples_plot = np.load(in_file_real)
 
 
 # Plot Settings
+plot_types = ["2dscatter", "3dhist", "2dcont"]
+plot_type = plot_types[0]
+
 plot_in_train = True
 fig_size=7
 point_size = 25
+bins = (100,100)
 
-plt.switch_backend('agg')
-mpl.style.use('seaborn')
-plt.figure(figsize=(fig_size, fig_size), facecolor='w')
-plt.grid(b=True)
-plt.scatter(real_samples_plot[:, 0], real_samples_plot[:, 1], c='blue', edgecolor='none', alpha=0.5, s=point_size, label="Real samples")
-plt.scatter(fake_samples[:, 0], fake_samples[:, 1], c='green', edgecolor='none', alpha=1, s=point_size, label="Fake samples")
-plt.legend(loc=1)
-plt.savefig(out_file_jpg)
+def make_2d_scatter(data: np.ndarray, save_file: str, stack: bool = False):
+    plt.switch_backend('agg')
+    mpl.style.use('seaborn')
+    if not stack:
+        plt.figure(figsize=(fig_size, fig_size), facecolor='w')
+        plt.scatter(data[:, 0], data[:, 1], c='green', edgecolor='none', alpha=1, s=point_size, label="samples")
+    else:
+        plt.scatter(data[:, 0], data[:, 1], c='blue', edgecolor='none', alpha=1, s=point_size, label="samples")
+
+    plt.grid(b=True)
+    plt.legend(loc=1)
+    plt.savefig(save_file+"_%s.jpg"%(plot_type + ("_STACK" if stack else "")))
+
+def make_3d_histogram(data: np.ndarray, save_file: str, stack: bool = False):
+    if not stack:
+        fig = plt.figure()
+        ax = fig.add_subplot(111,projection="3d")
+
+    x_pt = data[:,0]
+    y_pt = data[:,1]
+
+    hist, xedges, yedges = np.histogram2d(x_pt, y_pt, bins=bins)
+    # hist = hist.T
+    x, y = np.meshgrid(xedges[:-1]+xedges[1:], yedges[:-1]+yedges[1:])
+
+    x = x.flatten()/2.
+    y = y.flatten()/2.
+    z = np.zeros_like(x)
+
+    dx = x[1] - x[0]
+    dy = y[1] - y[0]
+    dz = hist.flatten()
+
+    ax.bar3d(x,y,z,dx,dy,dz)
+    plt.savefig(save_file+"_%s.jpg"%(plot_type + ("_STACK" if stack else "")))
+
+def make_2d_contour(data: np.ndarray, save_file: str, stack: bool = False):
+    if not stack:
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+
+    x_pt = data[:,0]
+    y_pt = data[:,1]
+
+    hist, xedges, yedges = np.histogram2d(x_pt, y_pt, bins=bins)
+    hist = hist.T
+    x, y = np.meshgrid(xedges[:-1]+xedges[1:], yedges[:-1]+yedges[1:])
+
+    x = x.flatten()/2.
+    y = y.flatten()/2.
+    
+    ax.contour(xedges[1:], yedges[1:], hist, 50)
+
+    plt.savefig(save_file+"_%s.jpg"%(plot_type + ("_STACK" if stack else "")))
+    plt.imsave(save_file+"_%s.png"%(plot_type + ("_STACK" if stack else "")),
+            hist, cmap="gray", vmin=0., vmax=np.max(hist), format="png", origin="lower")
+
+
+if plot_type == "2dscatter":
+    make_2d_scatter(fake_samples, out_file_fake, False)
+    make_2d_scatter(real_samples_plot, out_file_real, False)
+
+    
+
+elif plot_type == "3dhist":
+    make_3d_histogram(fake_samples, out_file_fake, False)
+    make_3d_histogram(real_samples_plot, out_file_real, False)
+
+elif plot_type == "2dcont":
+    make_2d_contour(fake_samples, out_file_fake, False)
+    make_2d_contour(real_samples_plot, out_file_real, False)
+
+
+    
