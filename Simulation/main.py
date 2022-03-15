@@ -28,7 +28,7 @@ os.chdir(wd)
 from models.cont_cond_GAN import cont_cond_discriminator
 from models.cont_cond_GAN import cont_cond_generator
 from Train_CcGAN import *
-from train_utils import gaus_point_circle, normalize_labels_circle, sample_real_gaussian
+from train_utils import gaus_point_circle, normalize_labels_circle, sample_real_gaussian, test_labels_circle, train_labels_circle
 from analysis_utils import l2_analysis, plot_analysis, two_was_analysis
 
 #######################################################################################
@@ -49,32 +49,60 @@ torch.backends.cudnn.deterministic = True
 cudnn.benchmark = False
 np.random.seed(args.seed)
 
+#------------------------------------------------------------------------------
+# Extensibility Hooks
+# How to calculate labels and gaus peak points given the geometry of the
+# problem (e.g. circle vs line)
+
+def train_labels(n_train):
+    return train_labels_circle(n_train)
+
+def test_labels(n_test):
+    return test_labels_circle(n_test)
+
+def normalize_labels(labels):
+    return normalize_labels_circle(labels)
+
+def gaus_point(labels):
+    return gaus_point_circle(labels, args.radius)
+
 #--------------------------------
-# Extra Data Generation Settings
+# Data Generation Settings
 n_gaussians = args.n_gaussians
 n_gaussians_eval = args.n_gaussians_eval
-n_features = 2 # 2-D
-radius = args.radius
-# angles for training
-angle_grid_train = np.linspace(0, 2*np.pi, n_gaussians, endpoint=False)
-# angles for evaluation
-unseen_angles_all = np.linspace(0, 2*np.pi, n_gaussians*100, endpoint=False)
-unseen_angles_all = np.setdiff1d(unseen_angles_all, angle_grid_train)
-angle_grid_eval = np.zeros(args.n_gaussians_eval)
-for i in range(args.n_gaussians_eval):
-    quantile_i = (i+1)/args.n_gaussians_eval
-    angle_grid_eval[i] = np.quantile(unseen_angles_all, quantile_i, interpolation='nearest')
-# angles for plotting
-unseen_angles_all = np.linspace(0, 2*np.pi, n_gaussians*100, endpoint=False)
-unseen_angles_all = np.setdiff1d(unseen_angles_all, angle_grid_train)
-unseen_angle_grid_plot = np.zeros(args.n_gaussians_plot)
-for i in range(args.n_gaussians_plot):
-    quantile_i = (i+1)/args.n_gaussians_plot
-    unseen_angle_grid_plot[i] = np.quantile(unseen_angles_all, quantile_i, interpolation='nearest')
+n_gaussians_plot = args.n_gaussians_plot
+
+n_samples_train = args.n_samp_per_gaussian_train
+n_samples_l2 = n_samples_two_was = args.n_samp_per_gaussian_eval
+n_samples_plot = args.n_samp_per_gaussian_plot
+
 # standard deviation of each Gaussian
 sigma_gaussian = args.sigma_gaussian
+n_features = 2 # 2-D
+radius = args.radius
+
+#------------------------------------------------------------------------------
+# Training and Testings Grids
+test_label_grid_res = 100   # 100x more labels to test from than training data
+# labels for training
+labels_train = train_labels_circle(n_gaussians)
+# labels for evaluation
+labels_test_all = test_labels_circle(n_gaussians * test_label_grid_res)
+# The line below is removed because it prevents testing on points where data has
+# already been generated: we want this as a sanity check.
+# labels_test = np.setdiff1d(labels_test, labels_train)
+labels_test_eval = np.empty((0,))
+for i in range(n_gaussians_eval):
+    quantile_i = (i+1)/n_gaussians_eval
+    labels_test_eval = np.append(labels_test_eval, np.quantile(labels_test_all, quantile_i, interpolation='nearest'))
+# labels for plotting
+labels_test_plot = np.empty((0,))
+for i in range(n_gaussians_plot):
+    quantile_i = (i+1)/n_gaussians_plot
+    labels_test_plot = np.append(labels_test_plot, np.quantile(labels_test_all, quantile_i, interpolation='nearest'))
+
 ### threshold to determine high quality samples
-quality_threshold = sigma_gaussian*4 #good samples are within 5 standard deviation
+quality_threshold = sigma_gaussian*4 #good samples are within 4 standard deviation
 print("Quality threshold is {}".format(quality_threshold))
 
 #-------------------------------
@@ -94,12 +122,6 @@ os.makedirs(save_images_folder,exist_ok=True)
 '''                               Start Experiment                                 '''
 #######################################################################################
 
-def normalize_labels(labels):
-    return normalize_labels_circle(labels)
-
-def gaus_point(labels):
-    return gaus_point_circle(labels, radius)
-
 prop_recovered_modes = np.zeros(args.nsim) # num of recovered modes diveded by num of modes
 prop_good_samples = np.zeros(args.nsim) # num of good fake samples diveded by num of all fake samples
 avg_two_w_dist = np.zeros(args.nsim)
@@ -113,15 +135,12 @@ for nSim in range(args.nsim):
     ###############################################################################
     # Data generation and dataloaders
     ###############################################################################
-    n_samples_train = args.n_samp_per_gaussian_train
-    labels_train = angle_grid_train
-    gaus_points_train = gaus_point(angle_grid_train)
-    gaus_points_train_plot = gaus_point(unseen_angle_grid_plot)
+    gaus_points_train = gaus_point(labels_train)
+    gaus_points_train_plot = gaus_point(labels_test_plot)
     
     #covariance matrix for each point sampled
     cov_mtxs_train = [sigma_gaussian**2 * np.eye(2)] * len(gaus_points_train)
     
-    #this angles_train is not normalized; normalize if args.GAN is not cGAN.
     samples_train, sampled_labels_train = sample_real_gaussian(n_samples_train, labels_train, gaus_points_train, cov_mtxs_train) 
     samples_train_plot, _ = sample_real_gaussian(10, labels_train, gaus_points_train_plot, cov_mtxs_train)
 
@@ -159,8 +178,8 @@ for nSim in range(args.nsim):
     ###############################################################################
     print("{}/{}, {}, Sigma is {}, Kappa is {}".format(nSim+1, args.nsim, args.threshold_type, args.kernel_sigma, args.kappa))
 
-    if args.GAN == 'CcGAN':
-        save_GANimages_InTrain_folder = wd + '/output/saved_images/{}_{}_{}_{}_nSim_{}_InTrain'.format(args.GAN, args.threshold_type, args.kernel_sigma, args.kappa, nSim)
+    
+    save_GANimages_InTrain_folder = wd + '/output/saved_images/CCGAN_{}_{}_{}_nSim_{}_InTrain'.format(args.threshold_type, args.kernel_sigma, args.kappa, nSim)
     os.makedirs(save_GANimages_InTrain_folder,exist_ok=True)
 
     #----------------------------------------------
@@ -172,7 +191,8 @@ for nSim in range(args.nsim):
         netD = cont_cond_discriminator(ngpu=NGPU, input_dim = n_features, radius=radius)
 
         # Start training
-        netG, netD = train_CcGAN(args.kernel_sigma, args.kappa, samples_train, sampled_labels_train_norm, netG, netD, save_images_folder=save_GANimages_InTrain_folder, save_models_folder = save_models_folder, plot_in_train=plot_in_train, samples_tar_eval = samples_train_plot, angle_grid_eval = unseen_angle_grid_plot, fig_size=fig_size, point_size=point_size)
+        netG, netD = train_CcGAN(args.kernel_sigma, args.kappa, samples_train, sampled_labels_train_norm, netG, netD, save_GANimages_InTrain_folder, save_models_folder, plot_in_train=plot_in_train, samples_tar_eval=samples_train_plot, angle_grid_eval=labels_test_plot, fig_size=fig_size, point_size=point_size)
+        # netG, netD = train_CcGAN(args.kernel_sigma, args.kappa, samples_train, sampled_labels_train_norm, netG, netD, save_images_folder=save_GANimages_InTrain_folder, save_models_folder = save_models_folder, plot_in_train=plot_in_train, samples_tar_eval = samples_train_plot, angle_grid_eval = labels_test_plot, fig_size=fig_size, point_size=point_size)
 
         # store model
         torch.save({
@@ -191,18 +211,16 @@ for nSim in range(args.nsim):
         print("\n Start evaluation >>>")
 
         # L2 Distance between real and fake samples
-        n_samples_l2 = args.n_samp_per_gaussian_eval
-        labels_l2_norm = normalize_labels(angle_grid_eval)
-        gaus_points_l2 = gaus_point(angle_grid_eval)
+        labels_l2_norm = normalize_labels(labels_test_eval)
+        gaus_points_l2 = gaus_point(labels_test_eval)
 
         # percentage of high quality and recovered modes by taking l2 distance between real and fake samples
         prop_recovered_modes[nSim], prop_good_samples[nSim] = \
             l2_analysis(netG, n_samples_l2, labels_l2_norm, gaus_points_l2, quality_threshold)
 
         # 2-Wasserstein Distance
-        n_samples_two_was = args.n_samp_per_gaussian_eval
-        labels_two_was_norm = normalize_labels(angle_grid_eval)
-        gaus_points_two_was = gaus_point(angle_grid_eval)
+        labels_two_was_norm = normalize_labels(labels_test_eval)
+        gaus_points_two_was = gaus_point(labels_test_eval)
         cov_mtxs_two_was = [sigma_gaussian**2 * np.eye(2)] * len(labels_two_was_norm)
 
         avg_two_w_dist[nSim] = \
@@ -210,16 +228,14 @@ for nSim in range(args.nsim):
 
         # visualize fake samples
         filename_plot = save_images_folder + 'CCGAN_real_fake_samples_{}_sigma_{}_kappa_{}_nSim_{}.jpg'.format(args.threshold_type, args.kernel_sigma, args.kappa, nSim)
-        n_gaussians_plot = args.n_gaussians_plot
-        n_samples_plot = args.n_samp_per_gaussian_plot
-        labels_plot = unseen_angle_grid_plot  #these dont matter
-        gaus_points_plot = gaus_point(unseen_angle_grid_plot)
+        labels_plot = labels_test_plot  #these dont matter
+        gaus_points_plot = gaus_point(labels_test_plot)
         cov_mtxs_plot = [sigma_gaussian**2 * np.eye(2)] * len(gaus_points_plot)
 
         plot_analysis(netG, n_samples_plot, n_gaussians_plot, labels_plot, gaus_points_plot, cov_mtxs_plot, normalize_labels, filename=filename_plot)
         
 stop = timeit.default_timer()
-print("GAN training finished; Time elapses: {}s".format(stop - start))
+print("GAN training finished; Time elapsed: {}s".format(stop - start))
 print("\n {}, Sigma is {}, Kappa is {}".format(args.threshold_type, args.kernel_sigma, args.kappa))
 print("\n Prop. of good quality samples>>>\n")
 print(prop_good_samples)

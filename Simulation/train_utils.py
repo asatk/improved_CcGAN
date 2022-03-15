@@ -32,6 +32,12 @@ def sample_real_gaussian(n_samples, labels, gaus_points, cov_mtxs):
 
     return samples, sampled_labels
 
+def train_labels_circle(n_train):
+    return np.linspace(0, 2*np.pi, n_train, endpoint=False)
+
+def test_labels_circle(n_test):
+    return np.linspace(0, 2*np.pi, n_test, endpoint=False)
+
 def normalize_labels_circle(labels):
     return np.divide(labels, 2*np.pi)
 
