@@ -33,7 +33,7 @@ def l2_analysis(netG, n_samples, labels_norm, gaus_points, quality_threshold):
 
     return prop_recovered_modes, prop_good_samples
 
-def plot_analysis(netG, n_samples, n_gaussians, labels, gaus_points, cov_mtxs, normalize_fn, filename=None, fig_size=7, point_size=25):
+def plot_analysis(netG, n_samples, n_gaussians, labels, gaus_points, cov_mtxs, normalize_fn, plot_lims_fn, filename=None, fig_size=7, point_size=25):
     
     if filename == None:
         filename = "./plot_analysis.jpg"
@@ -57,6 +57,8 @@ def plot_analysis(netG, n_samples, n_gaussians, labels, gaus_points, cov_mtxs, n
     mpl.style.use('seaborn')
     plt.figure(figsize=(fig_size, fig_size), facecolor='w')
     plt.grid(b=True)
+    plt.xlim(plot_lims_fn()[0])
+    plt.ylim(plot_lims_fn()[1])
     plt.scatter(samples_real_plot[:, 0], samples_real_plot[:, 1], c='blue', edgecolor='none', alpha=0.5, s=point_size, label="Real samples")
     plt.scatter(fake_samples[:, 0], fake_samples[:, 1], c='green', edgecolor='none', alpha=1, s=point_size, label="Fake samples")
     plt.legend(loc=1)

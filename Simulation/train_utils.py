@@ -1,6 +1,7 @@
 import numpy as np
 from PIL import Image
 import torch
+from defs_sim import *
 
 def sample_real_gaussian(n_samples, labels, gaus_points, cov_mtxs):
     '''
@@ -24,6 +25,9 @@ def sample_real_gaussian(n_samples, labels, gaus_points, cov_mtxs):
         label_i = labels[i]
         cov_mtx_i = cov_mtxs[i]
 
+        # print(cov_mtx_i)
+        # print(point_i)
+
         samples_i = np.random.multivariate_normal(point_i, cov_mtx_i, size=n_samples)
         samples = np.concatenate((samples, samples_i), axis=0)
 
@@ -35,14 +39,32 @@ def sample_real_gaussian(n_samples, labels, gaus_points, cov_mtxs):
 def train_labels_circle(n_train):
     return np.linspace(0, 2*np.pi, n_train, endpoint=False)
 
+def train_labels_line_1D(n_train):
+    return np.linspace(xmin, xmax, n_train, endpoint=False)
+
 def test_labels_circle(n_test):
     return np.linspace(0, 2*np.pi, n_test, endpoint=False)
+
+def test_labels_line_1D(n_test):
+    return np.linspace(xmin, xmax, n_test, endpoint=False)
 
 def normalize_labels_circle(labels):
     return np.divide(labels, 2*np.pi)
 
+def normalize_labels_line_1D(labels):
+    return np.divide(np.subtract(labels, xmin), (xmax - xmin))
+
 def gaus_point_circle(labels, radius):
     return np.multiply([np.sin(labels), np.cos(labels)], radius).T
+
+def gaus_point_line_1D(labels, yval):
+    return np.stack((labels, yval * np.ones(len(labels))), axis=1)
+
+def plot_lims_circle(radius):
+    return ((radius * -1.1, radius * 1.1), (radius * -1.1, radius * 1.1)) 
+
+def plot_lims_line_1D():
+    return ((xmin * 1.1, xmax * 1.1), (ymin * 1.1, ymax * 1.1))
 
 def sample_gen_for_label(gen, n_samples, label, path=None, batch_size = 500, n_dim=2):
     '''

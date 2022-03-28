@@ -28,7 +28,7 @@ os.chdir(wd)
 from models.cont_cond_GAN import cont_cond_discriminator
 from models.cont_cond_GAN import cont_cond_generator
 from Train_CcGAN import *
-from train_utils import gaus_point_circle, normalize_labels_circle, sample_real_gaussian, test_labels_circle, train_labels_circle
+from train_utils import gaus_point_circle, gaus_point_line_1D, normalize_labels_circle, normalize_labels_line_1D, plot_lims_circle, plot_lims_line_1D, sample_real_gaussian, test_labels_circle, train_labels_circle, train_labels_line_1D, test_labels_line_1D
 from analysis_utils import l2_analysis, plot_analysis, two_was_analysis
 
 #######################################################################################
@@ -55,16 +55,34 @@ np.random.seed(args.seed)
 # problem (e.g. circle vs line)
 
 def train_labels(n_train):
-    return train_labels_circle(n_train)
+    if (args.geo == "circle"):
+        return train_labels_circle(n_train)
+    elif (args.geo == "line"):
+        return train_labels_line_1D(n_train)
 
 def test_labels(n_test):
-    return test_labels_circle(n_test)
-
+    if (args.geo == "circle"):
+        return test_labels_circle(n_test)
+    elif (args.geo == "line"):
+        return test_labels_line_1D(n_test)
+    
 def normalize_labels(labels):
-    return normalize_labels_circle(labels)
+    if (args.geo == "circle"):
+        return normalize_labels_circle(labels)
+    elif (args.geo == "line"):
+        return normalize_labels_line_1D(labels)
 
 def gaus_point(labels):
-    return gaus_point_circle(labels, args.radius)
+    if (args.geo == "circle"):
+        return gaus_point_circle(labels, args.radius)
+    elif (args.geo == "line"):
+        return gaus_point_line_1D(labels, args.yval)
+
+def plot_lims():
+    if (args.geo == "circle"):
+        return plot_lims_circle(radius=args.radius)
+    elif (args.geo == "line"):
+        return plot_lims_line_1D()
 
 #--------------------------------
 # Data Generation Settings
@@ -85,9 +103,9 @@ radius = args.radius
 # Training and Testings Grids
 test_label_grid_res = 100   # 100x more labels to test from than training data
 # labels for training
-labels_train = train_labels_circle(n_gaussians)
+labels_train = train_labels(n_gaussians)
 # labels for evaluation
-labels_test_all = test_labels_circle(n_gaussians * test_label_grid_res)
+labels_test_all = test_labels(n_gaussians * test_label_grid_res)
 # The line below is removed because it prevents testing on points where data has
 # already been generated: we want this as a sanity check.
 # labels_test = np.setdiff1d(labels_test, labels_train)
@@ -113,9 +131,9 @@ point_size = 25
 
 #-------------------------------
 # output folders
-save_models_folder = wd + '/output/saved_models/'
+save_models_folder = wd + '/output/saved_models_{}/'.format(args.geo)
 os.makedirs(save_models_folder,exist_ok=True)
-save_images_folder = wd + '/output/saved_images/'
+save_images_folder = wd + '/output/saved_images_{}/'.format(args.geo)
 os.makedirs(save_images_folder,exist_ok=True)
 
 #######################################################################################
@@ -126,7 +144,7 @@ prop_recovered_modes = np.zeros(args.nsim) # num of recovered modes diveded by n
 prop_good_samples = np.zeros(args.nsim) # num of good fake samples diveded by num of all fake samples
 avg_two_w_dist = np.zeros(args.nsim)
 
-print("\n Begin The Experiment; Start Training {} >>>".format(args.GAN))
+print("\n Begin The Experiment; Start Training (geo: {})>>>".format(args.geo))
 start = timeit.default_timer()
 for nSim in range(args.nsim):
     print("Round %s" % (nSim))
@@ -151,6 +169,8 @@ for nSim in range(args.nsim):
         mpl.style.use('seaborn')
         plt.figure(figsize=(fig_size, fig_size), facecolor='w')
         plt.grid(b=True)
+        plt.xlim(plot_lims()[0])
+        plt.ylim(plot_lims()[1])
         plt.scatter(samples_train_plot[:, 0], samples_train_plot[:, 1], c='blue', edgecolor='none', alpha=0.5, s=point_size, label="Real samples")
         plt.scatter(gaus_points_train_plot[:, 0], gaus_points_train_plot[:, 1], c='red', edgecolor='none', alpha=1, s=point_size, label="Means")
         plt.legend(loc=1)
@@ -176,17 +196,18 @@ for nSim in range(args.nsim):
     ###############################################################################
     # Train a GAN model
     ###############################################################################
-    print("{}/{}, {}, Sigma is {}, Kappa is {}".format(nSim+1, args.nsim, args.threshold_type, args.kernel_sigma, args.kappa))
+    print("{}/{}, {}, Sigma is {:8f}, Kappa is {:8f}".format(nSim+1, args.nsim, args.threshold_type, args.kernel_sigma, args.kappa))
 
     
-    save_GANimages_InTrain_folder = wd + '/output/saved_images/CCGAN_{}_{}_{}_nSim_{}_InTrain'.format(args.threshold_type, args.kernel_sigma, args.kappa, nSim)
+    save_GANimages_InTrain_folder = wd + '/output/saved_images/CCGAN_{}_{:4f}_{:4f}_nSim_{}_InTrain'.format(args.threshold_type, args.kernel_sigma, args.kappa, nSim)
     os.makedirs(save_GANimages_InTrain_folder,exist_ok=True)
 
     #----------------------------------------------
     # Continuous cGAN
-    Filename_GAN = save_models_folder + '/ckpt_CCGAN_niters_{}_seed_{}_{}_{}_{}_nSim_{}.pth'.format(args.niters_gan, args.seed, args.threshold_type, args.kernel_sigma, args.kappa, nSim)
+    Filename_GAN = save_models_folder + '/ckpt_CCGAN_niters_{}_seed_{}_{}_{:4f}_{:4f}_nSim_{}.pth'.format(args.niters_gan, args.seed, args.threshold_type, args.kernel_sigma, args.kappa, nSim)
 
     if not os.path.isfile(Filename_GAN):
+    # if True:
         netG = cont_cond_generator(ngpu=NGPU, nz=args.dim_gan, out_dim=n_features, radius=radius)
         netD = cont_cond_discriminator(ngpu=NGPU, input_dim = n_features, radius=radius)
 
@@ -198,11 +219,11 @@ for nSim in range(args.nsim):
         torch.save({
             'netG_state_dict': netG.state_dict(),
         }, Filename_GAN)
-    else:
-        print("Loading pre-trained generator >>>")
-        checkpoint = torch.load(Filename_GAN)
-        netG = cont_cond_generator(ngpu=NGPU, nz=args.dim_gan, out_dim=n_features, radius=radius).to(device)
-        netG.load_state_dict(checkpoint['netG_state_dict'])
+    # else:
+    #     print("Loading pre-trained generator >>>")
+    #     checkpoint = torch.load(Filename_GAN)
+    #     netG = cont_cond_generator(ngpu=NGPU, nz=args.dim_gan, out_dim=n_features, radius=radius).to(device)
+    #     netG.load_state_dict(checkpoint['netG_state_dict'])
 
     ###############################################################################
     # Evaluation
@@ -227,12 +248,12 @@ for nSim in range(args.nsim):
             two_was_analysis(netG, n_samples_two_was, labels_two_was_norm, gaus_points_two_was, cov_mtxs_two_was)
 
         # visualize fake samples
-        filename_plot = save_images_folder + 'CCGAN_real_fake_samples_{}_sigma_{}_kappa_{}_nSim_{}.jpg'.format(args.threshold_type, args.kernel_sigma, args.kappa, nSim)
+        filename_plot = save_images_folder + 'CCGAN_real_fake_samples_{}_sigma_{:4f}_kappa_{:4f}_nSim_{}.jpg'.format(args.threshold_type, args.kernel_sigma, args.kappa, nSim)
         labels_plot = labels_test_plot  #these dont matter
         gaus_points_plot = gaus_point(labels_test_plot)
         cov_mtxs_plot = [sigma_gaussian**2 * np.eye(2)] * len(gaus_points_plot)
 
-        plot_analysis(netG, n_samples_plot, n_gaussians_plot, labels_plot, gaus_points_plot, cov_mtxs_plot, normalize_labels, filename=filename_plot)
+        plot_analysis(netG, n_samples_plot, n_gaussians_plot, labels_plot, gaus_points_plot, cov_mtxs_plot, normalize_labels, plot_lims, filename=filename_plot)
         
 stop = timeit.default_timer()
 print("GAN training finished; Time elapsed: {}s".format(stop - start))

@@ -4,19 +4,19 @@ def parse_opts():
     parser = argparse.ArgumentParser()
 
     ''' Overall Settings '''
-    parser.add_argument('--GAN', type=str, default='CcGAN',
-                        choices=['cGAN', 'CcGAN'])
     parser.add_argument('--nsim', type=int, default=3,
                         help = "How many times does this experiment need to be repeated?")
     parser.add_argument('--seed', type=int, default=2020, metavar='S',
                         help='random seed')
     parser.add_argument('--root_path', type=str, default='')
+    parser.add_argument('--geo', type=str, default='circle')
 
     ''' Data Generation '''
     parser.add_argument('--n_gaussians', type=int, default=120,
                         help = "Number of Gaussians (number of angles's).") #half of them will be used for training and the rest are for testing
     parser.add_argument('--n_samp_per_gaussian_train', type=int, default=10) # n_gaussians*n_rsamp_per_gaussian = ntrain
     parser.add_argument('--radius', type=float, default=1.0)
+    parser.add_argument('--yval', type=float, default=1.0)
     parser.add_argument('--sigma_gaussian', type=float, default=0.02)
 
 
