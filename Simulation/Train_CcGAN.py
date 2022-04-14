@@ -149,6 +149,8 @@ def train_CcGAN(kernel_sigma, kappa, train_samples, train_labels, netG, netD, sa
 
         d_loss = - torch.mean(real_weights.view(-1) * torch.log(real_dis_out.view(-1)+1e-20)) - torch.mean(fake_weights.view(-1) * torch.log(1 - fake_dis_out.view(-1)+1e-20))
 
+        # d_loss_chi2
+
         optimizerD.zero_grad()
         d_loss.backward()
         optimizerD.step()

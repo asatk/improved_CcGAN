@@ -28,7 +28,7 @@ os.chdir(wd)
 from models.cont_cond_GAN import cont_cond_discriminator
 from models.cont_cond_GAN import cont_cond_generator
 from Train_CcGAN import *
-from train_utils import gaus_point_circle, gaus_point_line_1D, normalize_labels_circle, normalize_labels_line_1D, plot_lims_circle, plot_lims_line_1D, sample_real_gaussian, test_labels_circle, train_labels_circle, train_labels_line_1D, test_labels_line_1D
+from train_utils import cov_change_const, cov_xy, gaus_point_circle, gaus_point_line_1D, normalize_labels_circle, normalize_labels_line_1D, plot_lims_circle, plot_lims_line_1D, sample_real_gaussian, test_labels_circle, train_labels_circle, train_labels_line_1D, test_labels_line_1D
 from analysis_utils import l2_analysis, plot_analysis, two_was_analysis
 
 #######################################################################################
@@ -83,6 +83,9 @@ def plot_lims():
         return plot_lims_circle(radius=args.radius)
     elif (args.geo == "line"):
         return plot_lims_line_1D()
+
+def cov_mtx(n_labels):
+    return cov_change_const(n_labels, cov_xy(sigma_gaussian))
 
 #--------------------------------
 # Data Generation Settings
@@ -157,8 +160,8 @@ for nSim in range(args.nsim):
     gaus_points_train_plot = gaus_point(labels_test_plot)
     
     #covariance matrix for each point sampled
-    cov_mtxs_train = [sigma_gaussian**2 * np.eye(2)] * len(gaus_points_train)
-    
+    cov_mtxs_train = cov_mtx(len(gaus_points_train))
+
     samples_train, sampled_labels_train = sample_real_gaussian(n_samples_train, labels_train, gaus_points_train, cov_mtxs_train) 
     samples_train_plot, _ = sample_real_gaussian(10, labels_train, gaus_points_train_plot, cov_mtxs_train)
 
@@ -242,7 +245,7 @@ for nSim in range(args.nsim):
         # 2-Wasserstein Distance
         labels_two_was_norm = normalize_labels(labels_test_eval)
         gaus_points_two_was = gaus_point(labels_test_eval)
-        cov_mtxs_two_was = [sigma_gaussian**2 * np.eye(2)] * len(labels_two_was_norm)
+        cov_mtxs_two_was = cov_mtx(len(labels_two_was_norm))
 
         avg_two_w_dist[nSim] = \
             two_was_analysis(netG, n_samples_two_was, labels_two_was_norm, gaus_points_two_was, cov_mtxs_two_was)
@@ -251,7 +254,7 @@ for nSim in range(args.nsim):
         filename_plot = save_images_folder + 'CCGAN_real_fake_samples_{}_sigma_{:4f}_kappa_{:4f}_nSim_{}.jpg'.format(args.threshold_type, args.kernel_sigma, args.kappa, nSim)
         labels_plot = labels_test_plot  #these dont matter
         gaus_points_plot = gaus_point(labels_test_plot)
-        cov_mtxs_plot = [sigma_gaussian**2 * np.eye(2)] * len(gaus_points_plot)
+        cov_mtxs_plot = cov_mtx(len(gaus_points_plot))
 
         plot_analysis(netG, n_samples_plot, n_gaussians_plot, labels_plot, gaus_points_plot, cov_mtxs_plot, normalize_labels, plot_lims, filename=filename_plot)
         

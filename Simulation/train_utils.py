@@ -66,6 +66,27 @@ def plot_lims_circle(radius):
 def plot_lims_line_1D():
     return ((xmin * 1.1, xmax * 1.1), (ymin * 1.1, ymax * 1.1))
 
+def cov_xy(sigma1, sigma2=None):
+    if sigma2 is None:
+        sigma2 = sigma1
+    return np.array([[sigma1**2, 0.],[0., sigma2**2]])
+
+def cov_skew(cov11, cov12, cov21=None, cov22=None):
+    if cov21 is None:
+        cov21 = cov12
+    if cov22 is None:
+        cov22 = cov11
+    return np.array([[cov11**2, cov12**2],[cov21**2, cov22**2]])
+    
+def cov_change_const(n_labels, cov):
+    return np.repeat([cov], n_labels, axis=0)
+
+def cov_change_linear(n_labels, cov):
+    return [(cov * cov_change_linear_rate) for i in range(n_labels)]
+
+def cov_change_skew(n_labels, cov):
+    return [np.dot(cov, np.array([[np.cos(i * np.pi/n_labels), np.sin(i * np.pi/n_labels)], [-np.sin(i * np.pi/n_labels), np.cos(i * np.pi/n_labels)]])) for i in range(n_labels)]
+
 def sample_gen_for_label(gen, n_samples, label, path=None, batch_size = 500, n_dim=2):
     '''
     label: normalized label in [0,1]
