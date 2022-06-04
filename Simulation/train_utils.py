@@ -63,8 +63,17 @@ def gaus_point_line_1D(labels, yval):
 def plot_lims_circle(radius):
     return ((radius * -1.1, radius * 1.1), (radius * -1.1, radius * 1.1)) 
 
+# use axes.set_xmargin to get the margin
+# def plot_lims_line_1D():
+#     xmean = (xmin + xmax) / 2
+#     xdiff = xmean - xmin
+#     ymean = (ymin + ymax) / 2
+#     ydiff = ymean - ymin
+#     return np.array(
+#         (np.array((xmean - xdiff * 1.1, xmean + xdiff * 1.1)),
+#         np.array((ymean - ydiff * 1.1, ymean + ydiff * 1.1))))
 def plot_lims_line_1D():
-    return ((xmin * 1.1, xmax * 1.1), (ymin * 1.1, ymax * 1.1))
+    return np.array([[xmin, xmax], [ymin, ymax]])
 
 def cov_xy(sigma1, sigma2=None):
     if sigma2 is None:
@@ -78,13 +87,19 @@ def cov_skew(cov11, cov12, cov21=None, cov22=None):
         cov22 = cov11
     return np.array([[cov11**2, cov12**2],[cov21**2, cov22**2]])
     
-def cov_change_const(n_labels, cov):
-    return np.repeat([cov], n_labels, axis=0)
+def cov_change_const(labels, cov):
+    return np.repeat([cov], len(labels), axis=0)
 
-def cov_change_linear(n_labels, cov):
-    return [(cov * cov_change_linear_rate) for i in range(n_labels)]
+def cov_change_linear(labels, cov):
+    return [cov * 
+        (1 + (xcov_change_linear_max_factor - 1) * label[0] / xmax) * 
+        (1 + (ycov_change_linear_max_factor - 1) * label[1] / ymax) for label in labels]
 
-def cov_change_skew(n_labels, cov):
+def cov_change_skew(labels, cov):
+    '''
+    NOT IMPLEMENTED PROPERLY
+    '''
+    n_labels = len(labels)
     return [np.dot(cov, np.array([[np.cos(i * np.pi/n_labels), np.sin(i * np.pi/n_labels)], [-np.sin(i * np.pi/n_labels), np.cos(i * np.pi/n_labels)]])) for i in range(n_labels)]
 
 def sample_gen_for_label(gen, n_samples, label, path=None, batch_size = 500, n_dim=2):

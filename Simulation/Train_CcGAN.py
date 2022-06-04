@@ -32,9 +32,6 @@ batch_size_gene = args.batch_size_gene
 threshold_type = args.threshold_type
 nonzero_soft_weight_threshold = args.nonzero_soft_weight_threshold
 
-
-
-
 def train_CcGAN(kernel_sigma, kappa, train_samples, train_labels, netG, netD, save_images_folder, save_models_folder = None, plot_in_train=False, samples_tar_eval = None, angle_grid_eval = None, fig_size=5, point_size=None):
 
     netG = netG.to(device)

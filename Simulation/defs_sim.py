@@ -11,5 +11,6 @@ ymin = 0.
 ymax = 1.
 ybins = 100.
 
-cov_change_linear_rate = 1.2    #percent growth  
-#cov_change_skew_rate =          #radian angle rotation
+xcov_change_linear_max_factor = 16.   #max change in growth in x
+ycov_change_linear_max_factor = 16.   #max change in growth in y
+#cov_change_skew_rate =             #radian angle rotation
