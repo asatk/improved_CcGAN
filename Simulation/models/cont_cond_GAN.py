@@ -43,16 +43,16 @@ class cont_cond_generator(nn.Module):
                 nn.Linear(self.inner_dim, self.out_dim, bias=bias_g),
             )
 
-    def forward(self, input, labels):
-        input = input.view(-1, self.nz)
+    def forward(self, z, labels):
+        z = z.view(-1, self.nz)
 
         labels = labels.view(-1, 1)*2*np.pi
-        input = torch.cat((input, self.radius*torch.sin(labels), self.radius*torch.cos(labels)), 1)
+        z = torch.cat((z, self.radius*torch.sin(labels), self.radius*torch.cos(labels)), 1)
 
-        if input.is_cuda and self.ngpu > 1:
-            output = nn.parallel.data_parallel(self.linear, input, range(self.ngpu))
+        if z.is_cuda and self.ngpu > 1:
+            output = nn.parallel.data_parallel(self.linear, z, range(self.ngpu))
         else:
-            output = self.linear(input)
+            output = self.linear(z)
         return output
 
 #########################################################
@@ -86,16 +86,16 @@ class cont_cond_discriminator(nn.Module):
             nn.Sigmoid()
         )
 
-    def forward(self, input, labels):
-        input = input.view(-1, self.input_dim)
+    def forward(self, x, labels):
+        x = x.view(-1, self.input_dim)
 
         labels = labels.view(-1, 1)*2*np.pi
-        input = torch.cat((input, self.radius*torch.sin(labels), self.radius*torch.cos(labels)), 1)
+        x = torch.cat((x, self.radius*torch.sin(labels), self.radius*torch.cos(labels)), 1)
 
-        if input.is_cuda and self.ngpu > 1:
-            output = nn.parallel.data_parallel(self.main, input, range(self.ngpu))
+        if x.is_cuda and self.ngpu > 1:
+            output = nn.parallel.data_parallel(self.main, x, range(self.ngpu))
         else:
-            output = self.main(input)
+            output = self.main(x)
         return output.view(-1, 1)
 
 if __name__=="__main__":

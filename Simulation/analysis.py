@@ -10,13 +10,18 @@ import matplotlib.pyplot as plt
 from models.cont_cond_GAN import cont_cond_generator
 import numpy as np
 from os import listdir, makedirs
+import re
 import ROOT
 from sys import argv
 from train_utils import *
 import torch
 
 # Load run (hyper)parameters
+if len(argv) != 3:
+    print("Two arguments must be supplied: python analysis.py <params.json> <Sim #>")
+
 filename_params_json = argv[1]
+sim = argv[2]
 params = load(open(filename_params_json, "r"))
 
 normalize_fn = normalize_labels_line_1d
@@ -24,7 +29,7 @@ plot_lims_fn = plot_lims_line_1d
 
 run_dir = params['run_dir']
 
-np.set_printoptions(threshold=np.inf)
+nsim = int(params['nsim'])
 
 # Plotting settings
 mpl.style.use('./CCGAN-seaborn.mplstyle')
@@ -39,7 +44,13 @@ save_data_dir = run_dir + 'analysis/'
 # Files to load
 filename_samples = load_data_dir + 'samples_train_0.npy'
 filename_labels = load_data_dir + 'labels_train_0.npy'
-filename_GAN = load_gan_dir + listdir(load_gan_dir)[1]
+
+p = re.compile(r"^ckpt_CCGAN.+nSim_(\d+).pth$")
+for f in listdir(load_gan_dir):
+    m = p.match(f)
+    if m and m.group(1) == sim:
+        filename_GAN = load_gan_dir + f
+
 # Files to save
 makedirs(save_data_dir, exist_ok=True)
 filename_real_jpg = save_data_dir + 'real.jpg'
@@ -53,6 +64,8 @@ filename_scatter_jpg = save_data_dir + 'scatter.jpg'
 n_samples_train = int(params['n_samples_train'])
 n_gaussians = int(params['n_gaussians'])
 n_gaussians_plot = int(params['n_gaussians_plot'])
+fake_sample_scale = 1
+n_samples_fake = fake_sample_scale * n_samples_train
 
 # Load training data and associated labels
 samples_train = np.load(filename_samples)
@@ -73,7 +86,7 @@ for i in range(n_gaussians):
     
     label_i = labels_norm[i * n_samples_train]
 
-    fake_samples_i, _ = sample_gen_for_label(netG, n_samples_train, label_i, batch_size=n_samples_train)
+    fake_samples_i, _ = sample_gen_for_label(netG, n_samples_fake, label_i, batch_size=n_samples_fake)
     fake_samples = np.concatenate((fake_samples, fake_samples_i), axis=0)
 
 # Select out certain gaussian and its samples for plotting purposes
@@ -83,22 +96,29 @@ samples_train_plot = samples_train_plot.reshape(n_gaussians_plot * n_samples_tra
 samples_train_plot_one = samples_train_plot[0:n_samples_train]
 
 fake_samples_plot = fake_samples.reshape(n_gaussians, -1, 2)[plot_idxs]
-fake_samples_plot = fake_samples_plot.reshape(n_gaussians_plot * n_samples_train, 2)
-fake_samples_plot_one = fake_samples_plot[0:n_samples_train]
+fake_samples_plot = fake_samples_plot.reshape(n_gaussians_plot * n_samples_fake, 2)
+fake_samples_plot_one = fake_samples_plot[0:n_samples_fake]
+
+# norm_factor = np.sum(np.histogram2d(samples_train_plot_one[:, 0], samples_train_plot_one[:, 1], bins=100, range=plot_lims_fn())[0])
 
 # Get real samples histogram
-h_real, _, _ = np.histogram2d(samples_train_plot[:, 0], samples_train_plot[:, 1], bins=100, range=plot_lims_fn())
-h_real_one, _, _ = np.histogram2d(samples_train_plot_one[:, 0], samples_train_plot_one[:, 1], bins=100, range=plot_lims_fn())
+h_real, xedges, yedges = np.histogram2d(samples_train_plot[:, 0], samples_train_plot[:, 1], bins=100, range=plot_lims_fn())
+# h_real = np.divide(h_real, np.sum(h_real))
+# h_real = np.divide(h_real, norm_factor)
+# h_real_one, _, _ = np.histogram2d(samples_train_plot_one[:, 0], samples_train_plot_one[:, 1], bins=100, range=plot_lims_fn())
 
 # Get fake samples histogram
-h_fake, xedges, yedges = np.histogram2d(fake_samples_plot[:, 0], fake_samples_plot[:, 1], bins=100, range=plot_lims_fn())
-h_fake_one, _, _ = np.histogram2d(fake_samples_plot_one[:, 0], fake_samples_plot_one[:, 1], bins=100, range=plot_lims_fn())
+h_fake, _, _ = np.histogram2d(fake_samples_plot[:, 0], fake_samples_plot[:, 1], bins=100, range=plot_lims_fn())
+# h_fake = np.divide(h_fake, np.sum(h_fake))
+# h_fake = np.divide(h_fake, norm_factor)
+# h_fake_one, _, _ = np.histogram2d(fake_samples_plot_one[:, 0], fake_samples_plot_one[:, 1], bins=100, range=plot_lims_fn())
 
 # Get net histogram from real and fake
 h_res = h_real - h_fake
 
-vmin = 0.
+vmin = 0.0
 vmax = max(np.max(h_real), np.max(h_fake))
+print(vmax)
 
 #Scatter of fake samples on real samples
 plt.scatter(samples_train_plot[:, 0], samples_train_plot[:, 1], c='blue', edgecolor='none', alpha=0.5, s=25, label="Real samples")
@@ -138,16 +158,14 @@ plt.savefig(filename_fake_jpg)
 
 plt.clf()
 
-maxval = max(abs(h_res.min()), abs(h_res.max()))
-# minmaxval = min(abs(h_res.min()), abs(h_res.max()))
+resmaxval = max(abs(h_res.min()), abs(h_res.max()))
 
 # Plot net histogram
-# ax = plt.gca()
 plt.figure(facecolor='w')
 plt.title("Residual of %i Gaussians (Real - Fake)"%(n_gaussians_plot))
 plt.xlabel(x_axis_label)
 plt.ylabel(y_axis_label)
-im = plt.imshow(h_res.T, cmap="RdBu_r", vmin=-1*maxval, vmax=maxval, origin='lower', extent=plot_lims_fn().flatten())
+im = plt.imshow(h_res.T, cmap="RdBu_r", vmin=-1*resmaxval, vmax=resmaxval, origin='lower', extent=plot_lims_fn().flatten())
 plt.gca().use_sticky_edges = False
 plt.margins(0.05)
 plt.gca().set_facecolor('w')
@@ -186,6 +204,7 @@ for i in range(n_gaussians_plot):
     hist = ROOT.TH2D("hist", "Gaussian %i/%i real samples"%(i + 1, n_gaussians_plot), xbins, xlo, xhi, ybins, ylo, yhi)
     samples_train_plot_one = samples_train_plot[i * n_samples_train: (i + 1) * n_samples_train]
     h_real_one, _, _ = np.histogram2d(samples_train_plot_one[:, 0], samples_train_plot_one[:, 1], bins=100, range=plot_lims_fn())
+    # h_real_one = np.divide(h_real_one, np.max(h_real_one))
     for bin_y in range(ybins):  
         y = yedges[bin_y]
         for bin_x in range(xbins):
@@ -213,8 +232,9 @@ for i in range(n_gaussians_plot):
 
 for j in range(n_gaussians_plot):
     hist = ROOT.TH2D("hist", "Gaussian %i/%i fake samples"%(j + 1, n_gaussians_plot), xbins, xlo, xhi, ybins, ylo, yhi)
-    fake_samples_plot_one = fake_samples_plot[j * n_samples_train: (j + 1) * n_samples_train]
+    fake_samples_plot_one = fake_samples_plot[j * n_samples_fake: (j + 1) * n_samples_fake]
     h_fake_one, _, _ = np.histogram2d(fake_samples_plot_one[:, 0], fake_samples_plot_one[:, 1], bins=100, range=plot_lims_fn())
+    # h_fake_one = np.divide(h_fake_one, np.max(h_fake_one))
     for bin_y in range(ybins):  
         y = yedges[bin_y]
         for bin_x in range(xbins):

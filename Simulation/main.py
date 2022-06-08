@@ -4,12 +4,12 @@
 
 '''
 
-print("\n==================================================================================================")
-
+import datetime
 from json import dump
 import numpy as np
 import os
 import random
+import re
 import torch
 import torch.backends.cudnn as cudnn
 import timeit
@@ -21,7 +21,7 @@ os.chdir(wd)
 
 from models.cont_cond_GAN import cont_cond_discriminator
 from models.cont_cond_GAN import cont_cond_generator
-from Train_CcGAN import *
+from Train_CcGAN import train_CCGAN
 from train_utils import *
 
 #######################################################################################
@@ -117,14 +117,19 @@ quality_threshold = sigma_gaussian*4 #good samples are within 4 standard deviati
 
 #-------------------------------
 # output folders
-run_num = 0
-for i, d in enumerate(os.listdir(wd + '/output/')):
-    print(d[0:4])
-    if d[0:4] == 'run_':
-        print(i)
-        run_num += 1
+runs = np.empty((0,), dtype=int)
+p = re.compile(r"run_(\d+)")
+for d in os.listdir(wd + '/output/'):
+    m = p.match(d)
+    if m:
+        runs = np.append(runs, int(m.group(1)))
 
-current_run_dir = wd + '/output/run_%i/'%(run_num)
+if len(runs) == 0:
+    current_run_dir = wd + '/output/run_0/'
+else:
+    all = np.linspace(0, np.max(runs) + 1, np.max(runs) + 2, dtype=int)
+    diff = np.setdiff1d(all, runs)
+    current_run_dir = wd + '/output/run_%i/'%(np.min(diff))
 
 save_models_dir = current_run_dir + 'saved_models/'
 os.makedirs(save_models_dir,exist_ok=True)
@@ -134,8 +139,10 @@ save_data_dir = current_run_dir + 'saved_data/'
 os.makedirs(save_data_dir,exist_ok=True)
 
 dict_params = {
+    "date": str(datetime.datetime.now()),
     "seed": args.seed,
-    "niters": niters,
+    "nsim": args.nsim,
+    "niters": args.niters_gan,
     "n_samples_train": n_samples_train,
     "n_gaussians": n_gaussians,
     "n_gaussians_plot": n_gaussians_plot,
@@ -150,14 +157,14 @@ dict_params = {
     "sigma": args.kernel_sigma,
     "kappa": args.kappa,
     "dim_gan": args.dim_gan,
-    "xmin": xmin,
-    "xmax": xmax,
-    "xbins": xbins,
-    "ymin": ymin,
-    "ymax": ymax,
-    "ybins": ybins,
-    "xcov_change_linear_max_factor": xcov_change_linear_max_factor,
-    "ycov_change_linear_max_factor": ycov_change_linear_max_factor,
+    "xmin": defs.xmin,
+    "xmax": defs.xmax,
+    "xbins": defs.xbins,
+    "ymin": defs.ymin,
+    "ymax": defs.ymax,
+    "ybins": defs.ybins,
+    "xcov_change_linear_max_factor": defs.xcov_change_linear_max_factor,
+    "ycov_change_linear_max_factor": defs.ycov_change_linear_max_factor,
     "run_dir": current_run_dir
 }
 
@@ -168,10 +175,23 @@ with open(current_run_dir + "run_parameters.json", 'w+') as filename_params_json
 '''                               Start Experiment                                 '''
 #######################################################################################
 
-print("\n Begin The Experiment; Start Training (geo: {})>>>".format(args.geo))
+log = current_run_dir + "log.txt"
+log_file = open(log, 'w+')
+
+print("==================================================================================================")
+print("\nBegin The Experiment; Start Training (geo: {})>>>".format(args.geo))
+print("==================================================================================================", file=log_file)
+print("\nBegin The Experiment; Start Training (geo: {})>>>".format(args.geo), file=log_file)
+log_file.close()
+
 start = timeit.default_timer()
 for nSim in range(args.nsim):
-    print("Simulation %i" % (nSim))
+
+    log_file = open(log, 'a+')
+
+    print("\nSimulation %i" % (nSim))
+    print("\nSimulation %i" % (nSim), file=log_file)
+
     np.random.seed(args.seed + nSim) #set seed for current simulation
 
     ###############################################################################
@@ -200,7 +220,9 @@ for nSim in range(args.nsim):
     if args.kernel_sigma<0:
         std_labels_train_norm = np.std(sampled_labels_train_norm)
         args.kernel_sigma = 1.06*std_labels_train_norm*(len(sampled_labels_train_norm))**(-1/5)
-        print("\n Use rule-of-thumb formula to compute kernel_sigma >>>")
+
+        print("Use rule-of-thumb formula to compute kernel_sigma >>>")
+        print("Use rule-of-thumb formula to compute kernel_sigma >>>", file=log_file)
 
     if args.kappa < 0:
         kappa_base = np.abs(args.kappa)/args.n_gaussians
@@ -213,7 +235,10 @@ for nSim in range(args.nsim):
     ###############################################################################
     # Train a GAN model
     ###############################################################################
-    print("{}/{}, {}, Sigma is {:4f}, Kappa is {:4f}".format(nSim+1, args.nsim, args.threshold_type, args.kernel_sigma, args.kappa))
+
+    print(("{}/{}, {}, Sigma is {:04f}, Kappa is {:04f}".format(nSim+1, args.nsim, args.threshold_type, args.kernel_sigma, args.kappa)))
+    print(("{}/{}, {}, Sigma is {:04f}, Kappa is {:04f}".format(nSim+1, args.nsim, args.threshold_type, args.kernel_sigma, args.kappa)), file=log_file)
+    log_file.close()
 
     #----------------------------------------------
     # Continuous cGAN
@@ -223,7 +248,7 @@ for nSim in range(args.nsim):
     netD = cont_cond_discriminator(ngpu=NGPU, input_dim = n_features, radius=radius)
 
     # Start training
-    netG, netD = train_CcGAN(args.kernel_sigma, args.kappa, samples_train, sampled_labels_train_norm, netG, netD, save_models_dir)
+    netG, netD = train_CCGAN(args.kernel_sigma, args.kappa, samples_train, sampled_labels_train_norm, netG, netD, save_models_dir=save_models_dir, log=log)
 
     # store model
     torch.save({
@@ -231,6 +256,11 @@ for nSim in range(args.nsim):
     }, Filename_GAN)
         
 stop = timeit.default_timer()
-print("GAN training finished; Time elapsed: {}s".format(stop - start))
-print("\n {}, Sigma is {}, Kappa is {}".format(args.threshold_type, args.kernel_sigma, args.kappa))
+log_file = open(log, 'a+')
+print("GAN training finished; Time elapsed: {:04f}s".format(stop - start))
+print("\n{}, Sigma is {:04f}, Kappa is {:04f}".format(args.threshold_type, args.kernel_sigma, args.kappa))
 print("\n===================================================================================================")
+print("GAN training finished; Time elapsed: {:04f}s".format(stop - start), file=log_file)
+print("\n{}, Sigma is {:04f}, Kappa is {:04f}".format(args.threshold_type, args.kernel_sigma, args.kappa), file=log_file)
+print("\n===================================================================================================", file=log_file)
+log_file.close()

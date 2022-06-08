@@ -7,7 +7,7 @@ Author: Anthony Atkinson
 import numpy as np
 from PIL import Image
 import torch
-from defs_sim import *
+import defs
 
 def sample_real_gaussian(n_samples, labels, gaus_points, cov_mtxs):
     '''
@@ -31,9 +31,6 @@ def sample_real_gaussian(n_samples, labels, gaus_points, cov_mtxs):
         label_i = labels[i]
         cov_mtx_i = cov_mtxs[i]
 
-        # print(cov_mtx_i)
-        # print(point_i)
-
         samples_i = np.random.multivariate_normal(point_i, cov_mtx_i, size=n_samples)
         samples = np.concatenate((samples, samples_i), axis=0)
 
@@ -46,19 +43,19 @@ def train_labels_circle(n_train):
     return np.linspace(0, 2*np.pi, n_train, endpoint=False)
 
 def train_labels_line_1d(n_train):
-    return np.linspace(xmin, xmax, n_train, endpoint=False)
+    return np.linspace(defs.xmin, defs.xmax, n_train, endpoint=False)
 
 def test_labels_circle(n_test):
     return np.linspace(0, 2*np.pi, n_test, endpoint=False)
 
 def test_labels_line_1d(n_test):
-    return np.linspace(xmin, xmax, n_test, endpoint=False)
+    return np.linspace(defs.xmin, defs.xmax, n_test, endpoint=False)
 
 def normalize_labels_circle(labels):
     return np.divide(labels, 2*np.pi)
 
 def normalize_labels_line_1d(labels):
-    return np.divide(np.subtract(labels, xmin), (xmax - xmin))
+    return np.divide(np.subtract(labels, defs.xmin), (defs.xmax - defs.xmin))
 
 def gaus_point_circle(labels, radius):
     return np.multiply([np.sin(labels), np.cos(labels)], radius).T
@@ -71,15 +68,15 @@ def plot_lims_circle(radius):
 
 # use axes.set_xmargin to get the margin
 # def plot_lims_line_1D():
-#     xmean = (xmin + xmax) / 2
-#     xdiff = xmean - xmin
-#     ymean = (ymin + ymax) / 2
-#     ydiff = ymean - ymin
+#     xmean = (defs.xmin + defs.xmax) / 2
+#     xdiff = xmean - defs.xmin
+#     ymean = (defs.ymin + defs.ymax) / 2
+#     ydiff = ymean - defs.ymin
 #     return np.array(
 #         (np.array((xmean - xdiff * 1.1, xmean + xdiff * 1.1)),
 #         np.array((ymean - ydiff * 1.1, ymean + ydiff * 1.1))))
 def plot_lims_line_1d():
-    return np.array([[xmin, xmax], [ymin, ymax]])
+    return np.array([[defs.xmin, defs.xmax], [defs.ymin, defs.ymax]])
 
 def cov_xy(sigma1, sigma2=None):
     if sigma2 is None:
@@ -98,8 +95,8 @@ def cov_change_const(labels, cov):
 
 def cov_change_linear(labels, cov):
     return [cov * 
-        (1 + (xcov_change_linear_max_factor - 1) * label[0] / xmax) * 
-        (1 + (ycov_change_linear_max_factor - 1) * label[1] / ymax) for label in labels]
+        (1 + (defs.xcov_change_linear_max_factor - 1) * label[0] / defs.xmax) * 
+        (1 + (defs.ycov_change_linear_max_factor - 1) * label[1] / defs.ymax) for label in labels]
 
 def cov_change_skew(labels, cov):
     '''
