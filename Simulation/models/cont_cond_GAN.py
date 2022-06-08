@@ -2,9 +2,8 @@ import torch
 import torch.nn as nn
 import numpy as np
 
-
 #########################################################
-# genearator
+# generator
 bias_g = False
 class cont_cond_generator(nn.Module):
     def __init__(self, ngpu=1, nz=2, out_dim=2, radius=1):
@@ -33,13 +32,13 @@ class cont_cond_generator(nn.Module):
                 nn.BatchNorm1d(self.inner_dim),
                 nn.ReLU(True),
 
-                nn.Linear(self.inner_dim, self.inner_dim, bias=bias_g),
-                nn.BatchNorm1d(self.inner_dim),
-                nn.ReLU(True),
+                # nn.Linear(self.inner_dim, self.inner_dim, bias=bias_g),
+                # nn.BatchNorm1d(self.inner_dim),
+                # nn.ReLU(True),
 
-                nn.Linear(self.inner_dim, self.inner_dim, bias=bias_g),
-                nn.BatchNorm1d(self.inner_dim),
-                nn.ReLU(True),
+                # nn.Linear(self.inner_dim, self.inner_dim, bias=bias_g),
+                # nn.BatchNorm1d(self.inner_dim),
+                # nn.ReLU(True),
 
                 nn.Linear(self.inner_dim, self.out_dim, bias=bias_g),
             )
@@ -77,16 +76,15 @@ class cont_cond_discriminator(nn.Module):
             nn.Linear(self.inner_dim, self.inner_dim, bias=bias_d),
             nn.ReLU(True),
 
-            nn.Linear(self.inner_dim, self.inner_dim, bias=bias_d),
-            nn.ReLU(True),
+            # nn.Linear(self.inner_dim, self.inner_dim, bias=bias_d),
+            # nn.ReLU(True),
 
-            nn.Linear(self.inner_dim, self.inner_dim, bias=bias_d),
-            nn.ReLU(True),
+            # nn.Linear(self.inner_dim, self.inner_dim, bias=bias_d),
+            # nn.ReLU(True),
 
             nn.Linear(self.inner_dim, 1, bias=bias_d),
             nn.Sigmoid()
         )
-
 
     def forward(self, input, labels):
         input = input.view(-1, self.input_dim)
@@ -99,10 +97,6 @@ class cont_cond_discriminator(nn.Module):
         else:
             output = self.main(input)
         return output.view(-1, 1)
-
-
-
-
 
 if __name__=="__main__":
     import numpy as np

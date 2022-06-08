@@ -1,18 +1,15 @@
+'''
+Definitions of utility functions for analyzing CCGAN output.
+These are unusued and replaced by the analysis.py script
+
+Author: Anthony Atkinson
+'''
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.optimize import curve_fit
 from tqdm import tqdm
 from train_utils import sample_gen_for_label
-from train_utils import sample_real_gaussian
 from utils import two_wasserstein
-
-# def gaus_analysis():
-
-#     def func(x, ):
-
-
-#     curve_fit(f=func, xdata=, ydata=)
 
 def l2_analysis(netG, n_samples, labels_norm, gaus_points, quality_threshold):
     
@@ -41,7 +38,7 @@ def l2_analysis(netG, n_samples, labels_norm, gaus_points, quality_threshold):
 
     return prop_recovered_modes, prop_good_samples
 
-def plot_analysis(netG, n_samples, n_gaussians, samples_real, labels, normalize_fn, plot_lims_fn, filename=None, fig_size=10, point_size=25):
+def plot_analysis(netG, n_samples, n_gaussians, samples_real, labels, normalize_fn, plot_lims_fn, filename=None, fig_size=10):
     
     if filename == None:
         filename = "./plot_analysis.jpg"
@@ -79,8 +76,8 @@ def plot_analysis(netG, n_samples, n_gaussians, samples_real, labels, normalize_
     plt.ylabel('y var', fontsize=15)
     plt.xticks(fontsize=15)
     plt.yticks(fontsize=15)
-    # plt.scatter(samples_real_plot[:, 0], samples_real_plot[:, 1], c='blue', edgecolor='none', alpha=0.5, s=point_size, label="Real samples")
-    # plt.scatter(fake_samples[:, 0], fake_samples[:, 1], c='green', edgecolor='none', alpha=1, s=point_size, label="Fake samples")
+    # plt.scatter(samples_real_plot[:, 0], samples_real_plot[:, 1], c='blue', edgecolor='none', alpha=0.5, s=25, label="Real samples")
+    # plt.scatter(fake_samples[:, 0], fake_samples[:, 1], c='green', edgecolor='none', alpha=1, s=25, label="Fake samples")
     h_fake, _, _ = np.histogram2d(fake_samples[:, 0], fake_samples[:, 1], bins=100, range=plot_lims_fn())
     im = plt.imshow(h_fake, cmap='inferno', origin='lower', extent=plot_lims_fn().flatten())
     plt.colorbar(im, shrink=0.8)

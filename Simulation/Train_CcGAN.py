@@ -32,7 +32,7 @@ batch_size_gene = args.batch_size_gene
 threshold_type = args.threshold_type
 nonzero_soft_weight_threshold = args.nonzero_soft_weight_threshold
 
-def train_CcGAN(kernel_sigma, kappa, train_samples, train_labels, netG, netD, save_images_folder, save_models_folder = None, plot_in_train=False, samples_tar_eval = None, angle_grid_eval = None, fig_size=5, point_size=None):
+def train_CcGAN(kernel_sigma, kappa, train_samples, train_labels, netG, netD, save_models_folder = None):
 
     netG = netG.to(device)
     netD = netD.to(device)
@@ -182,24 +182,24 @@ def train_CcGAN(kernel_sigma, kappa, train_samples, train_labels, netG, netD, sa
         if niter%100 == 0:
             print ("CcGAN: [Iter %d/%d] [D loss: %.4e] [G loss: %.4e] [real prob: %.3f] [fake prob: %.3f] [Time: %.4f]" % (niter+1, niters, d_loss.item(), g_loss.item(), real_dis_out.mean().item(), fake_dis_out.mean().item(), timeit.default_timer()-start_time))
 
-        # output fake images during training
-        if plot_in_train and (niter+1)%100 == 0:
-            netG.eval()
-            assert save_images_folder is not None
-            z = torch.randn(samples_tar_eval.shape[0], dim_gan, dtype=torch.float).to(device)
+        # # output fake images during training
+        # if plot_in_train and (niter+1)%100 == 0:
+        #     netG.eval()
+        #     assert save_images_folder is not None
+        #     z = torch.randn(samples_tar_eval.shape[0], dim_gan, dtype=torch.float).to(device)
 
-            labels = np.random.choice(angle_grid_eval/(2*np.pi), size=samples_tar_eval.shape[0], replace=True)
-            labels = torch.from_numpy(labels).type(torch.float).to(device)
-            prop_samples = netG(z, labels).cpu().detach().numpy()
-            filename = save_images_folder + '/{}.png'.format(niter+1)
-            ScatterPoints(samples_tar_eval, prop_samples, filename, fig_size=fig_size, point_size=point_size)
+        #     labels = np.random.choice(angle_grid_eval/(2*np.pi), size=samples_tar_eval.shape[0], replace=True)
+        #     labels = torch.from_numpy(labels).type(torch.float).to(device)
+        #     prop_samples = netG(z, labels).cpu().detach().numpy()
+        #     filename = save_images_folder + '/{}.png'.format(niter+1)
+        #     ScatterPoints(samples_tar_eval, prop_samples, filename, fig_size=fig_size, point_size=point_size)
 
-            labels = np.random.choice(angle_grid_eval/(2*np.pi), size=1, replace=True)
-            labels = np.repeat(labels, samples_tar_eval.shape[0])
-            labels = torch.from_numpy(labels).type(torch.float).to(device)
-            prop_samples = netG(z, labels).cpu().detach().numpy()
-            filename = save_images_folder + '/{}_{}.png'.format(niter+1, labels[0]*(2*np.pi))
-            ScatterPoints(samples_tar_eval, prop_samples, filename, fig_size=fig_size, point_size=point_size)
+        #     labels = np.random.choice(angle_grid_eval/(2*np.pi), size=1, replace=True)
+        #     labels = np.repeat(labels, samples_tar_eval.shape[0])
+        #     labels = torch.from_numpy(labels).type(torch.float).to(device)
+        #     prop_samples = netG(z, labels).cpu().detach().numpy()
+        #     filename = save_images_folder + '/{}_{}.png'.format(niter+1, labels[0]*(2*np.pi))
+        #     ScatterPoints(samples_tar_eval, prop_samples, filename, fig_size=fig_size, point_size=point_size)
 
         if save_models_folder is not None and ((niter+1) % save_niters_freq == 0 or (niter+1) == niters):
             save_file = save_models_folder + "/CcGAN_checkpoint_intrain/CcGAN_checkpoint_niters_{}.pth".format(niter+1)

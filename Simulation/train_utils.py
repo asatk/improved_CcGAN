@@ -1,3 +1,9 @@
+'''
+Definitions of utility functions for training CCGAN.
+
+Author: Anthony Atkinson
+'''
+
 import numpy as np
 from PIL import Image
 import torch
@@ -39,25 +45,25 @@ def sample_real_gaussian(n_samples, labels, gaus_points, cov_mtxs):
 def train_labels_circle(n_train):
     return np.linspace(0, 2*np.pi, n_train, endpoint=False)
 
-def train_labels_line_1D(n_train):
+def train_labels_line_1d(n_train):
     return np.linspace(xmin, xmax, n_train, endpoint=False)
 
 def test_labels_circle(n_test):
     return np.linspace(0, 2*np.pi, n_test, endpoint=False)
 
-def test_labels_line_1D(n_test):
+def test_labels_line_1d(n_test):
     return np.linspace(xmin, xmax, n_test, endpoint=False)
 
 def normalize_labels_circle(labels):
     return np.divide(labels, 2*np.pi)
 
-def normalize_labels_line_1D(labels):
+def normalize_labels_line_1d(labels):
     return np.divide(np.subtract(labels, xmin), (xmax - xmin))
 
 def gaus_point_circle(labels, radius):
     return np.multiply([np.sin(labels), np.cos(labels)], radius).T
 
-def gaus_point_line_1D(labels, yval):
+def gaus_point_line_1d(labels, yval):
     return np.stack((labels, yval * np.ones(len(labels))), axis=1)
 
 def plot_lims_circle(radius):
@@ -72,7 +78,7 @@ def plot_lims_circle(radius):
 #     return np.array(
 #         (np.array((xmean - xdiff * 1.1, xmean + xdiff * 1.1)),
 #         np.array((ymean - ydiff * 1.1, ymean + ydiff * 1.1))))
-def plot_lims_line_1D():
+def plot_lims_line_1d():
     return np.array([[xmin, xmax], [ymin, ymax]])
 
 def cov_xy(sigma1, sigma2=None):
