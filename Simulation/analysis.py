@@ -39,7 +39,7 @@ x_axis_label = 'x var'
 y_axis_label = 'y var'
 load_data_dir = run_dir + 'saved_data/'
 load_gan_dir = run_dir + 'saved_models/'
-save_data_dir = run_dir + 'analysis/'
+save_data_dir = run_dir + 'analysis_%s/'%(sim)
 
 # Files to load
 filename_samples = load_data_dir + 'samples_train_0.npy'
@@ -64,7 +64,7 @@ filename_scatter_jpg = save_data_dir + 'scatter.jpg'
 n_samples_train = int(params['n_samples_train'])
 n_gaussians = int(params['n_gaussians'])
 n_gaussians_plot = int(params['n_gaussians_plot'])
-fake_sample_scale = 1
+fake_sample_scale = 1000
 n_samples_fake = fake_sample_scale * n_samples_train
 
 # Load training data and associated labels
