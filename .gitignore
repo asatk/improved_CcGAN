@@ -3,3 +3,4 @@
 *.png
 *.pyc
 Simulation/output/
+Simulation/py3CCGANCondor.tar

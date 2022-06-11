@@ -44,9 +44,9 @@ class cont_cond_generator(nn.Module):
             )
 
     def forward(self, z, labels):
-        z = z.view(-1, self.nz)
+        z = z.reshape(-1, self.nz)
 
-        labels = labels.view(-1, 1)*2*np.pi
+        labels = labels.reshape(-1, 1)*2*np.pi
         z = torch.cat((z, self.radius*torch.sin(labels), self.radius*torch.cos(labels)), 1)
 
         if z.is_cuda and self.ngpu > 1:
@@ -87,16 +87,16 @@ class cont_cond_discriminator(nn.Module):
         )
 
     def forward(self, x, labels):
-        x = x.view(-1, self.input_dim)
+        x = x.reshape(-1, self.input_dim)
 
-        labels = labels.view(-1, 1)*2*np.pi
+        labels = labels.reshape(-1, 1)*2*np.pi
         x = torch.cat((x, self.radius*torch.sin(labels), self.radius*torch.cos(labels)), 1)
 
         if x.is_cuda and self.ngpu > 1:
             output = nn.parallel.data_parallel(self.main, x, range(self.ngpu))
         else:
             output = self.main(x)
-        return output.view(-1, 1)
+        return output.reshape(-1, 1)
 
 if __name__=="__main__":
     import numpy as np
@@ -108,7 +108,7 @@ if __name__=="__main__":
 
     z = torch.randn(32, 2).cuda()
     y = np.random.randint(100, 300, 32)
-    y = torch.from_numpy(y).type(torch.float).view(-1,1).cuda()
+    y = torch.from_numpy(y).type(torch.float).reshape(-1,1).cuda()
     x = netG(z,y)
     o = netD(x,y)
     print(y.size())

@@ -8,7 +8,6 @@ import torch.nn as nn
 import numpy as np
 import os
 import timeit
-from PIL import Image
 
 from opts import parse_opts
 
@@ -220,9 +219,9 @@ def SampCcGAN_given_label(netG, label, path=None, NFAKE = 10000, batch_size = 50
     if path is not None:
         raw_fake_samples = (fake_samples*0.5+0.5)*255.0
         raw_fake_samples = raw_fake_samples.astype(np.uint8)
-        for i in range(NFAKE):
-            filename = path + '/' + str(i) + '.jpg'
-            im = Image.fromarray(raw_fake_samples[i][0], mode='L')
-            im = im.save(filename)
+        # for i in range(NFAKE):
+        #     filename = path + '/' + str(i) + '.jpg'
+            # im = Image.fromarray(raw_fake_samples[i][0], mode='L')
+            # im = im.save(filename)
 
     return fake_samples, fake_angles

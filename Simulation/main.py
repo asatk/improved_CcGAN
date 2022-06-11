@@ -133,8 +133,6 @@ else:
 
 save_models_dir = current_run_dir + 'saved_models/'
 os.makedirs(save_models_dir,exist_ok=True)
-save_images_dir = current_run_dir + 'saved_images/'
-os.makedirs(save_images_dir,exist_ok=True)
 save_data_dir = current_run_dir + 'saved_data/'
 os.makedirs(save_data_dir,exist_ok=True)
 

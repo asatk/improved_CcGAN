@@ -64,7 +64,7 @@ filename_scatter_jpg = save_data_dir + 'scatter.jpg'
 n_samples_train = int(params['n_samples_train'])
 n_gaussians = int(params['n_gaussians'])
 n_gaussians_plot = int(params['n_gaussians_plot'])
-fake_sample_scale = 1000
+fake_sample_scale = 1
 n_samples_fake = fake_sample_scale * n_samples_train
 
 # Load training data and associated labels
