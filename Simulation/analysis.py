@@ -177,7 +177,11 @@ plt.savefig(filename_net_jpg)
 canv = ROOT.TCanvas("canv", "title", 1000, 1000)
 canv.DrawCrosshair()
 
-func = ROOT.TF2("func", "xygaus", xlo, xhi, ylo, yhi)
+# Fit Function
+# ref: https://root.cern.ch/doc/v608/group__PdfFunc.html#ga118e731634d25ce7716c0b279c5e6a16
+# ref: https://en.wikipedia.org/wiki/Multivariate_normal_distribution#Bivariate_case
+xygaus_formula = "bigaus"
+func = ROOT.TF2("func", xygaus_formula, xlo, xhi, ylo, yhi)
 func.SetNpx(xbins)
 func.SetNpy(ybins)
 func.SetParameters(1., xguess, 0.075, 0.5, 0.075)
@@ -204,11 +208,14 @@ for i in range(n_gaussians_plot):
         hist.Fill(x, y)
 
     hist.SetMaximum(vmax)
-    hist.Fit("func", "SMRQ")
+    hist.Fit("func", "SMLRQ")
     hist.Draw("COLZ")
     canv.Update()
     canv.SaveAs(filename_real_one_jpg%(i + 1))
     hist.Delete()
+
+    # reset fit function after every fit
+    func.SetParameters(1., xguess, 0.075, 0.5, 0.075)
 
 # Plot Fake Samples
 for j in range(n_gaussians_plot):
@@ -221,8 +228,11 @@ for j in range(n_gaussians_plot):
         hist.Fill(x, y)
 
     hist.SetMaximum(vmax)
-    hist.Fit("func", "SMRQ")
+    hist.Fit("func", "SMLRQ")
     hist.Draw("COLZ")
     canv.Update()
     canv.SaveAs(filename_fake_one_jpg%(j + 1))
     hist.Delete()
+
+    # reset fit function after every fit
+    func.SetParameters(1., xguess, 0.075, 0.5, 0.075)
