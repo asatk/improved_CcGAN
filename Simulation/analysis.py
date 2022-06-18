@@ -17,14 +17,6 @@ import torch
 from models.CCGAN import generator
 import train_utils
 
-# -> leaving this here <- #
-# # labels for plotting
-# labels_test_plot = np.empty((0,))
-# for i in range(defs.ngausplot):
-#     quantile_i = (i+1)/defs.ngausplot
-#     labels_test_plot = np.append(labels_test_plot, np.quantile(labels_test_all, quantile_i, interpolation='nearest'))
-
-
 # Load run (hyper)parameters
 if len(argv) != 3:
     print("Two arguments must be supplied: python analysis.py <params.json> <Sim #>")
@@ -76,6 +68,15 @@ n_gaussians_plot = int(params['n_gaussians_plot'])
 fake_sample_scale = 1
 n_samples_fake = fake_sample_scale * n_samples_train
 
+# Histogram settings
+xlo = params['xmin']
+xhi = params['xmax']
+xbins = int(params['xbins'])
+ylo = params['ymin']
+yhi = params['ymax']
+ybins = int(params['ybins'])
+xguess = 0.5
+
 # Load training data and associated labels
 samples_train = np.load(filename_samples)
 labels = np.load(filename_labels)
@@ -108,19 +109,11 @@ fake_samples_plot = fake_samples.reshape(n_gaussians, -1, 2)[plot_idxs]
 fake_samples_plot = fake_samples_plot.reshape(n_gaussians_plot * n_samples_fake, 2)
 fake_samples_plot_one = fake_samples_plot[0:n_samples_fake]
 
-# norm_factor = np.sum(np.histogram2d(samples_train_plot_one[:, 0], samples_train_plot_one[:, 1], bins=100, range=plot_lims_fn())[0])
-
 # Get real samples histogram
-h_real, xedges, yedges = np.histogram2d(samples_train_plot[:, 0], samples_train_plot[:, 1], bins=100, range=plot_lims_fn())
-# h_real = np.divide(h_real, np.sum(h_real))
-# h_real = np.divide(h_real, norm_factor)
-# h_real_one, _, _ = np.histogram2d(samples_train_plot_one[:, 0], samples_train_plot_one[:, 1], bins=100, range=plot_lims_fn())
+h_real, xedges, yedges = np.histogram2d(samples_train_plot[:, 0], samples_train_plot[:, 1], bins=xbins, range=plot_lims_fn())
 
 # Get fake samples histogram
-h_fake, _, _ = np.histogram2d(fake_samples_plot[:, 0], fake_samples_plot[:, 1], bins=100, range=plot_lims_fn())
-# h_fake = np.divide(h_fake, np.sum(h_fake))
-# h_fake = np.divide(h_fake, norm_factor)
-# h_fake_one, _, _ = np.histogram2d(fake_samples_plot_one[:, 0], fake_samples_plot_one[:, 1], bins=100, range=plot_lims_fn())
+h_fake, _, _ = np.histogram2d(fake_samples_plot[:, 0], fake_samples_plot[:, 1], bins=xbins, range=plot_lims_fn())
 
 # Get net histogram from real and fake
 h_res = h_real - h_fake
@@ -184,14 +177,6 @@ plt.savefig(filename_net_jpg)
 canv = ROOT.TCanvas("canv", "title", 1000, 1000)
 canv.DrawCrosshair()
 
-xlo = params['xmin']
-xhi = params['xmax']
-xbins = int(params['xbins'])
-ylo = params['ymin']
-yhi = params['ymax']
-ybins = int(params['ybins'])
-xguess = 0.5
-
 func = ROOT.TF2("func", "xygaus", xlo, xhi, ylo, yhi)
 func.SetNpx(xbins)
 func.SetNpy(ybins)
@@ -207,45 +192,37 @@ V for Verbose
 R for Range defined in TF1 def
 B for fixing parameters to those defined in fn pre-fit
 '''
+
+# Plot Training Samples
 for i in range(n_gaussians_plot):
     hist = ROOT.TH2D("hist", "Gaussian %i/%i real samples"%(i + 1, n_gaussians_plot), xbins, xlo, xhi, ybins, ylo, yhi)
     samples_train_plot_one = samples_train_plot[i * n_samples_train: (i + 1) * n_samples_train]
-    h_real_one, _, _ = np.histogram2d(samples_train_plot_one[:, 0], samples_train_plot_one[:, 1], bins=100, range=plot_lims_fn())
-    # h_real_one = np.divide(h_real_one, np.max(h_real_one))
-    for bin_y in range(ybins):  
-        y = yedges[bin_y]
-        for bin_x in range(xbins):
-            x = xedges[bin_x]
-            z = h_real_one[bin_x,bin_y]
-            # don't add to array if no data
-            if z != 0:
-                hist.Fill(x, y, z)
+
+    for p in samples_train_plot_one:
+        x = p[0]
+        y = p[1]
+        hist.Fill(x, y)
+
     hist.SetMaximum(vmax)
     hist.Fit("func", "SMRQ")
     hist.Draw("COLZ")
     canv.Update()
     canv.SaveAs(filename_real_one_jpg%(i + 1))
-    # input()
     hist.Delete()
 
+# Plot Fake Samples
 for j in range(n_gaussians_plot):
     hist = ROOT.TH2D("hist", "Gaussian %i/%i fake samples"%(j + 1, n_gaussians_plot), xbins, xlo, xhi, ybins, ylo, yhi)
     fake_samples_plot_one = fake_samples_plot[j * n_samples_fake: (j + 1) * n_samples_fake]
-    h_fake_one, _, _ = np.histogram2d(fake_samples_plot_one[:, 0], fake_samples_plot_one[:, 1], bins=100, range=plot_lims_fn())
-    # h_fake_one = np.divide(h_fake_one, np.max(h_fake_one))
-    for bin_y in range(ybins):  
-        y = yedges[bin_y]
-        for bin_x in range(xbins):
-            x = xedges[bin_x]
-            z = h_fake_one[bin_x,bin_y]
-            # don't add to array if no data
-            if z != 0:
-                hist.Fill(x, y, z)
+    
+    for p in fake_samples_plot_one:
+        x = p[0]
+        y = p[1]
+        hist.Fill(x, y)
+
     hist.SetMaximum(vmax)
-    hist.Fit("func", "SM0R")
+    hist.Fit("func", "SMRQ")
     hist.Draw("COLZ")
     canv.Update()
     canv.SaveAs(filename_fake_one_jpg%(j + 1))
-    # input()
     hist.Delete()
-
