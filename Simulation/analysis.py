@@ -7,14 +7,23 @@ Author: Anthony Atkinson
 from json import load
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from models.cont_cond_GAN import cont_cond_generator
 import numpy as np
 from os import listdir, makedirs
 import re
 import ROOT
 from sys import argv
-from train_utils import *
 import torch
+
+from models.CCGAN import generator
+import train_utils
+
+# -> leaving this here <- #
+# # labels for plotting
+# labels_test_plot = np.empty((0,))
+# for i in range(defs.ngausplot):
+#     quantile_i = (i+1)/defs.ngausplot
+#     labels_test_plot = np.append(labels_test_plot, np.quantile(labels_test_all, quantile_i, interpolation='nearest'))
+
 
 # Load run (hyper)parameters
 if len(argv) != 3:
@@ -24,8 +33,8 @@ filename_params_json = argv[1]
 sim = argv[2]
 params = load(open(filename_params_json, "r"))
 
-normalize_fn = normalize_labels_line_1d
-plot_lims_fn = plot_lims_line_1d
+normalize_fn = train_utils.normalize_labels_line_1d
+plot_lims_fn = train_utils.plot_lims_line_1d
 
 run_dir = params['run_dir']
 
@@ -42,14 +51,14 @@ load_gan_dir = run_dir + 'saved_models/'
 save_data_dir = run_dir + 'analysis_%s/'%(sim)
 
 # Files to load
-filename_samples = load_data_dir + 'samples_train_0.npy'
-filename_labels = load_data_dir + 'labels_train_0.npy'
+filename_samples = load_data_dir + 'samples_train_%s.npy'%(sim)
+filename_labels = load_data_dir + 'labels_train_%s.npy'%(sim)
 
-p = re.compile(r"^ckpt_CCGAN.+nSim_(\d+).pth$")
+p = re.compile(r"^CCGAN.+sim_(\d+).pth$")
 for f in listdir(load_gan_dir):
     m = p.match(f)
     if m and m.group(1) == sim:
-        filename_GAN = load_gan_dir + f
+        filename_gan = load_gan_dir + f
 
 # Files to save
 makedirs(save_data_dir, exist_ok=True)
@@ -74,10 +83,10 @@ labels = np.load(filename_labels)
 dim = params['dim_gan']
 
 # Load network at its most recent state
-checkpoint = torch.load(filename_GAN)
+checkpoint = torch.load(filename_gan)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-netG = cont_cond_generator().to(device)
-netG.load_state_dict(checkpoint['netG_state_dict'])
+gen = generator().to(device)
+gen.load_state_dict(checkpoint['gen_state_dict'])
 
 # Generate fake labels from network
 labels_norm = normalize_fn(labels)
@@ -86,7 +95,7 @@ for i in range(n_gaussians):
     
     label_i = labels_norm[i * n_samples_train]
 
-    fake_samples_i, _ = sample_gen_for_label(netG, n_samples_fake, label_i, batch_size=n_samples_fake)
+    fake_samples_i, _ = train_utils.sample_gen_for_label(gen, n_samples_fake, label_i, batch_size=n_samples_fake)
     fake_samples = np.concatenate((fake_samples, fake_samples_i), axis=0)
 
 # Select out certain gaussian and its samples for plotting purposes
@@ -182,8 +191,6 @@ ylo = params['ymin']
 yhi = params['ymax']
 ybins = int(params['ybins'])
 xguess = 0.5
-# hist = ROOT.TH2D("hist", "hist title", xbins, xlo, xhi, ybins, ylo, yhi)
-# histAll = ROOT.TH2D("histall", "all gauss real samples", xbins, xlo, xhi, ybins, ylo, yhi)
 
 func = ROOT.TF2("func", "xygaus", xlo, xhi, ylo, yhi)
 func.SetNpx(xbins)
@@ -213,22 +220,13 @@ for i in range(n_gaussians_plot):
             # don't add to array if no data
             if z != 0:
                 hist.Fill(x, y, z)
-                # histAll.Fill(x, y, z)
     hist.SetMaximum(vmax)
-    hist.Fit("func", "SM0RQ")
+    hist.Fit("func", "SMRQ")
     hist.Draw("COLZ")
     canv.Update()
     canv.SaveAs(filename_real_one_jpg%(i + 1))
     # input()
     hist.Delete()
-
-# histAll.Draw("COLZ")
-# canv.Update()
-# canv.SaveAs()
-# input()
-# histAll.Delete()
-
-# histAll = ROOT.TH2D("histall", "all gauss fake samples", xbins, xlo, xhi, ybins, ylo, yhi)
 
 for j in range(n_gaussians_plot):
     hist = ROOT.TH2D("hist", "Gaussian %i/%i fake samples"%(j + 1, n_gaussians_plot), xbins, xlo, xhi, ybins, ylo, yhi)
@@ -243,7 +241,6 @@ for j in range(n_gaussians_plot):
             # don't add to array if no data
             if z != 0:
                 hist.Fill(x, y, z)
-                # histAll.Fill(x, y, z)
     hist.SetMaximum(vmax)
     hist.Fit("func", "SM0R")
     hist.Draw("COLZ")
@@ -252,8 +249,3 @@ for j in range(n_gaussians_plot):
     # input()
     hist.Delete()
 
-# histAll.Draw("COLZ")
-# canv.Update()
-# canv.SaveAs()
-# # input()
-# histAll.Delete()

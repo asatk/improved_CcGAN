@@ -4,7 +4,7 @@ import sys
 from tqdm import tqdm
 import torch
 from utils import *
-from models import *
+from models import cont_cond_generator
 from glob import glob
 import argparse
 parser = argparse.ArgumentParser(description="")
@@ -14,7 +14,6 @@ parser.add_argument("num", type=int, help="number of samples")
 parser.add_argument("-o", "--outfile", default='', help="filename for .npz file")
 my_args = parser.parse_args()
 sys.argv = [sys.argv[0]]
-from Train_CcGAN import *
 args = my_args
 
 # network constants
@@ -22,6 +21,8 @@ radius = 1.
 sigma_gaussian = 0.02
 dim_gan = 2
 n_features = 2
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+NGPU = torch.cuda.device_count()
 
 # load generator network
 print("Load network...")

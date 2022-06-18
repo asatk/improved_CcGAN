@@ -1,6 +1,5 @@
 import numpy as np
 #np.set_printoptions(threshold=sys.maxsize)
-import sys
 import ROOT
 import math
 
@@ -69,7 +68,7 @@ hist_gen_y.SetTitle('Y Projection')
 hist_gen_y.Draw('')
 hist_gen_y.Fit('gaus')
 
-if not args.label == None:
+if args.label != None:
   label = float(args.label)
   angle = np.pi/2 - label
   x0 = math.cos(angle)

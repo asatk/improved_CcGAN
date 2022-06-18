@@ -4,3 +4,4 @@
 *.pyc
 Simulation/output/
 Simulation/py3CCGANCondor.tar
+Simulation/.old/output

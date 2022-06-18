@@ -54,8 +54,14 @@ def test_labels_line_1d(n_test):
 def normalize_labels_circle(labels):
     return np.divide(labels, 2*np.pi)
 
+def recover_labels_circle(labels):
+    return np.multiply(labels, 2*np.pi)
+
 def normalize_labels_line_1d(labels):
     return np.divide(np.subtract(labels, defs.xmin), (defs.xmax - defs.xmin))
+
+def recover_labels_line_1d(labels):
+    return np.add(np.multiply(labels, (defs.xmax - defs.xmin)), defs.xmax)
 
 def gaus_point_circle(labels, radius):
     return np.multiply([np.sin(labels), np.cos(labels)], radius).T
@@ -64,17 +70,8 @@ def gaus_point_line_1d(labels, yval):
     return np.stack((labels, yval * np.ones(len(labels))), axis=1)
 
 def plot_lims_circle(radius):
-    return ((radius * -1.1, radius * 1.1), (radius * -1.1, radius * 1.1)) 
+    return np.multiply(np.ones((2,2)), radius)
 
-# use axes.set_xmargin to get the margin
-# def plot_lims_line_1D():
-#     xmean = (defs.xmin + defs.xmax) / 2
-#     xdiff = xmean - defs.xmin
-#     ymean = (defs.ymin + defs.ymax) / 2
-#     ydiff = ymean - defs.ymin
-#     return np.array(
-#         (np.array((xmean - xdiff * 1.1, xmean + xdiff * 1.1)),
-#         np.array((ymean - ydiff * 1.1, ymean + ydiff * 1.1))))
 def plot_lims_line_1d():
     return np.array([[defs.xmin, defs.xmax], [defs.ymin, defs.ymax]])
 

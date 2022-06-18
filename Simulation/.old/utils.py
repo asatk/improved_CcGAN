@@ -105,6 +105,42 @@ def sampler_CircleGaussian(n_samp_per_gaussian, angle_grid, radius, sigma = 0.05
 
     return samples, angles, means
 
+def SampCcGAN_given_label(netG, label, path=None, NFAKE = 10000, batch_size = 500, num_features=2):
+    '''
+    label: normalized label in [0,1]
+    '''
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    dim_gan = num_features
+
+    if batch_size>NFAKE:
+        batch_size = NFAKE
+    fake_samples = np.zeros((NFAKE+batch_size, num_features), dtype=np.float)
+    netG=netG.to(device)
+    netG.eval()
+    with torch.no_grad():
+        tmp = 0
+        while tmp < NFAKE:
+            z = torch.randn(batch_size, dim_gan, dtype=torch.float).to(device)
+            y = np.ones(batch_size) * label
+            y = torch.from_numpy(y).type(torch.float).view(-1,1).to(device)
+            batch_fake_samples = netG(z, y)
+            fake_samples[tmp:(tmp+batch_size)] = batch_fake_samples.cpu().detach().numpy()
+            tmp += batch_size
+
+    #remove extra entries
+    fake_samples = fake_samples[0:NFAKE]
+    fake_angles = np.ones(NFAKE) * label #use assigned label
+
+    if path is not None:
+        raw_fake_samples = (fake_samples*0.5+0.5)*255.0
+        raw_fake_samples = raw_fake_samples.astype(np.uint8)
+        # for i in range(NFAKE):
+        #     filename = path + '/' + str(i) + '.jpg'
+            # im = Image.fromarray(raw_fake_samples[i][0], mode='L')
+            # im = im.save(filename)
+
+    return fake_samples, fake_angles
 
 
 ################################################################################
