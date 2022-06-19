@@ -48,6 +48,7 @@ class generator(nn.Module):
                 nn.Linear(self.inner_dim, self.out_dim, bias=bias_g),
             )
 
+    # circle geometry
     # def forward(self, z, labels):
     #     z = z.reshape(-1, self.nz)
 
@@ -60,6 +61,7 @@ class generator(nn.Module):
     #         output = self.linear(z)
     #     return output
 
+    # line geometry
     def forward(self, z, labels):
         z = z.reshape(-1, self.nz)
         labels = labels.reshape(-1, 1)
@@ -112,6 +114,7 @@ class discriminator(nn.Module):
             nn.Sigmoid()
         )
 
+    # circle geometry
     # def forward(self, x, labels):
     #     x = x.reshape(-1, self.input_dim)
 
@@ -124,6 +127,7 @@ class discriminator(nn.Module):
     #         output = self.main(x)
     #     return output.reshape(-1, 1)
 
+    # line geometry
     def forward(self, x, labels):
         x = x.reshape(-1, self.input_dim)
         labels = labels.reshape(-1, 1)

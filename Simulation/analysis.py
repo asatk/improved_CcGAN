@@ -29,13 +29,15 @@ normalize_fn = train_utils.normalize_labels_line_1d
 plot_lims_fn = train_utils.plot_lims_line_1d
 
 run_dir = params['run_dir']
-
 nsim = int(params['nsim'])
 
 # Plotting settings
 mpl.style.use('./CCGAN-seaborn.mplstyle')
 plt.switch_backend('agg')
-ROOT.gStyle.SetOptFit(1)
+#choose to look at one or the other
+ROOT.gStyle.SetOptStat(0) #1110 if in use else 0
+ROOT.gStyle.SetOptFit(1111)  #1111 if in use else 0
+ROOT.gROOT.ForceStyle()
 x_axis_label = 'x var'
 y_axis_label = 'y var'
 load_data_dir = run_dir + 'saved_data/'
@@ -56,8 +58,12 @@ for f in listdir(load_gan_dir):
 makedirs(save_data_dir, exist_ok=True)
 filename_real_jpg = save_data_dir + 'real.jpg'
 filename_real_one_jpg = save_data_dir + 'real_%02i.jpg'
+filename_xreal_one_jpg = save_data_dir + 'x_%02i_real.jpg'
+filename_yreal_one_jpg = save_data_dir + 'y_%02i_real.jpg'
 filename_fake_jpg = save_data_dir + 'fake.jpg'
 filename_fake_one_jpg = save_data_dir + 'fake_%02i.jpg'
+filename_xfake_one_jpg = save_data_dir + 'x_%02i_fake.jpg'
+filename_yfake_one_jpg = save_data_dir + 'y_%02i_fake.jpg'
 filename_net_jpg = save_data_dir + 'net.jpg'
 filename_scatter_jpg = save_data_dir + 'scatter.jpg'
 
@@ -118,9 +124,9 @@ h_fake, _, _ = np.histogram2d(fake_samples_plot[:, 0], fake_samples_plot[:, 1], 
 # Get net histogram from real and fake
 h_res = h_real - h_fake
 
+# Max value across all distributions (for plotting and scaling)
 vmin = 0.0
 vmax = max(np.max(h_real), np.max(h_fake))
-print(vmax)
 
 #Scatter of fake samples on real samples
 plt.scatter(samples_train_plot[:, 0], samples_train_plot[:, 1], c='blue', edgecolor='none', alpha=0.5, s=25, label="Real samples")
@@ -174,17 +180,22 @@ plt.gca().set_facecolor('w')
 plt.colorbar(im, shrink=0.8)
 plt.savefig(filename_net_jpg)
 
-canv = ROOT.TCanvas("canv", "title", 1000, 1000)
+canv = ROOT.TCanvas("canv", "title", 800, 800)
 canv.DrawCrosshair()
 
 # Fit Function
 # ref: https://root.cern.ch/doc/v608/group__PdfFunc.html#ga118e731634d25ce7716c0b279c5e6a16
 # ref: https://en.wikipedia.org/wiki/Multivariate_normal_distribution#Bivariate_case
 xygaus_formula = "bigaus"
-func = ROOT.TF2("func", xygaus_formula, xlo, xhi, ylo, yhi)
-func.SetNpx(xbins)
-func.SetNpy(ybins)
-func.SetParameters(1., xguess, 0.075, 0.5, 0.075)
+gaus2d = ROOT.TF2("gaus2d", xygaus_formula, xlo, xhi, ylo, yhi)
+gaus2d.SetNpx(xbins)
+gaus2d.SetNpy(ybins)
+gaus2d.SetParameters(1., xguess, 0.075, 0.5, 0.075)
+#only one gaus for both since same axes and statistics both ways - keep in mind
+gaus1d = ROOT.TF1("gaus1d", "gaus", xlo, xhi)
+gaus1d.SetNpx(xbins)
+gaus1d.SetParameters(1., xguess, 0.075)
+fit_options = "SMLRQ0"
 
 '''
 S for Save function in histogram fit
@@ -197,42 +208,99 @@ R for Range defined in TF1 def
 B for fixing parameters to those defined in fn pre-fit
 '''
 
+hist_real_title_name = "Gaussian %i/%i real samples"
+hist_fake_title_name = "Gaussian %i/%i fake samples"
+hist = ROOT.TH2D("hist", "hist", xbins, xlo, xhi, ybins, ylo, yhi)
+hist.SetMaximum(vmax)
+histx = ROOT.TH1D("histx", "histx", xbins, xlo, xhi)
+histx.SetLineWidth(2)
+histy = ROOT.TH1D("histy", "histy", ybins, ylo, yhi)
+histy.SetLineWidth(2)
+
 # Plot Training Samples
 for i in range(n_gaussians_plot):
-    hist = ROOT.TH2D("hist", "Gaussian %i/%i real samples"%(i + 1, n_gaussians_plot), xbins, xlo, xhi, ybins, ylo, yhi)
+    
+    hist.SetTitle(hist_real_title_name%(i + 1, n_gaussians_plot))
+    histx.SetTitle(hist_real_title_name%(i + 1, n_gaussians_plot) + " (X)")
+    histy.SetTitle(hist_real_title_name%(i + 1, n_gaussians_plot) + " (Y)")
+
     samples_train_plot_one = samples_train_plot[i * n_samples_train: (i + 1) * n_samples_train]
 
+    # Fill ROOT hist with every real sample
     for p in samples_train_plot_one:
         x = p[0]
         y = p[1]
         hist.Fill(x, y)
 
-    hist.SetMaximum(vmax)
-    hist.Fit("func", "SMLRQ")
+    # total profile and 2d gaus fit
+    hist.Fit("gaus2d", fit_options)
     hist.Draw("COLZ")
     canv.Update()
     canv.SaveAs(filename_real_one_jpg%(i + 1))
-    hist.Delete()
+    canv.Clear()
 
-    # reset fit function after every fit
-    func.SetParameters(1., xguess, 0.075, 0.5, 0.075)
+    # X projection and 1d gaus fit
+    hist.ProjectionX("histx")
+    histx.Fit("gaus1d", fit_options)
+    histx.Draw("HIST")
+    canv.Update()
+    canv.SaveAs(filename_xreal_one_jpg%(i + 1))
+    canv.Clear()
+    gaus1d.SetParameters(1., xguess, 0.075)
+
+    # Y projection and 1d gaus fit
+    hist.ProjectionY("histy")
+    histy.Fit("gaus1d", fit_options)
+    histy.Draw("HIST")
+    canv.Update()
+    canv.SaveAs(filename_yreal_one_jpg%(i + 1))
+    canv.Clear()
+
+    # reset functions and histogram after every fit
+    hist.Reset("ICES")
+    gaus2d.SetParameters(1., xguess, 0.075, 0.5, 0.075)
+    gaus1d.SetParameters(1., xguess, 0.075)
 
 # Plot Fake Samples
 for j in range(n_gaussians_plot):
-    hist = ROOT.TH2D("hist", "Gaussian %i/%i fake samples"%(j + 1, n_gaussians_plot), xbins, xlo, xhi, ybins, ylo, yhi)
+    
+    hist.SetTitle(hist_fake_title_name%(j + 1, n_gaussians_plot))
+    histx.SetTitle(hist_fake_title_name%(j + 1, n_gaussians_plot) + " (X)")
+    histy.SetTitle(hist_fake_title_name%(j + 1, n_gaussians_plot) + " (Y)")
+
     fake_samples_plot_one = fake_samples_plot[j * n_samples_fake: (j + 1) * n_samples_fake]
     
+    # Fill ROOT hist with every fake sample
     for p in fake_samples_plot_one:
         x = p[0]
         y = p[1]
         hist.Fill(x, y)
 
-    hist.SetMaximum(vmax)
-    hist.Fit("func", "SMLRQ")
+    # total profile and 2d gaus fit
+    hist.Fit("gaus2d", fit_options)
     hist.Draw("COLZ")
     canv.Update()
     canv.SaveAs(filename_fake_one_jpg%(j + 1))
-    hist.Delete()
+    canv.Clear()
 
-    # reset fit function after every fit
-    func.SetParameters(1., xguess, 0.075, 0.5, 0.075)
+    # X projection and 1d gaus fit
+    hist.ProjectionX("histx")
+    histx.Fit("gaus1d", fit_options)
+    histx.Draw("HIST")
+    canv.Update()
+    canv.SaveAs(filename_xfake_one_jpg%(j + 1))
+    canv.Clear()
+    gaus1d.SetParameters(1., xguess, 0.075)
+
+    # Y projection and 1d gaus fit
+    hist.ProjectionY("histy")
+    histy.Fit("gaus1d", fit_options)
+    histy.Draw("HIST")
+    canv.Update()
+    canv.SaveAs(filename_yfake_one_jpg%(j + 1))
+    canv.Clear()
+
+    # reset functions and histogram after every fit
+    hist.Reset("ICES")
+    gaus2d.SetParameters(1., xguess, 0.075, 0.5, 0.075)
+    gaus1d.SetParameters(1., xguess, 0.075)

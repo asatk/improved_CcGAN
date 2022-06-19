@@ -16,7 +16,7 @@ import torch.backends.cudnn as cudnn
 import defs
 from models.CCGAN import discriminator
 from models.CCGAN import generator
-from train_nprng import train_CCGAN
+from Simulation.train import train_CCGAN
 import train_utils
 
 #######################################################################################
