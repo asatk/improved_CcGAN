@@ -253,8 +253,8 @@ for sim in range(defs.nsim):
 
     gen, dis, times = train_CCGAN(gen, dis, defs.sigma_kernel, defs.kappa, train_data, uniques, save_models_dir=save_models_dir, log=log)
     
-    time_labels = np.array(['pre_batch', 'batch', 'post_batch', 'gen_train', 'dis', 'gen', 'dis_opt', 'gen_opt', 'total', 'vicinity_time', '', 'labelling_time', 'bounds_time', '', 'rng_choice_time'])
-    select = [1, 9, 11, 12, 14]
+    time_labels = np.array(['pre_batch', 'batch', 'post_batch', 'vicinity_time', 'bounds_time', 'labelling_time', 'total'])
+    select = [1, 3, 5, 4]
     fig = plt.figure(111, figsize=(9., 9.,))
     # mpl.style.use('./CCGAN-seaborn.mplstyle')
     bars = plt.bar(time_labels[select], times[select])

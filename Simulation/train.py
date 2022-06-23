@@ -3,9 +3,6 @@ Train a regression DCGAN
 
 """
 
-# from joblib import Parallel, delayed
-from matplotlib import pyplot as plt
-from numba import njit
 import torch
 from typing import Tuple
 import numpy as np
@@ -31,19 +28,12 @@ batch_size_gene = defs.nbatch_g
 threshold_type = defs.thresh
 nonzero_soft_weight_threshold = defs.soft_weight_thresh
 n_samples = defs.nsamp
-# rng = torch.manual_seed(defs.seed)
+
 rng = np.random.default_rng(defs.seed)
-
-
-@njit
-def index(array, item):
-    for idx, val in np.ndenumerate(array):
-        if val == item:
-            return idx
 
 def train_CCGAN(gen, dis, sigma_kernel, kappa, train_data, uniques, save_models_dir=None, log=None) -> Tuple[generator, discriminator]:
 
-    times = np.zeros((15,))
+    times = np.zeros((7,))
 
     if log is not None:
         log_file = open(log, 'a+')
@@ -86,7 +76,7 @@ def train_CCGAN(gen, dis, sigma_kernel, kappa, train_data, uniques, save_models_
 
         ## find index of real images with labels in the vicinity of batch_target_labels
         ## generate labels for fake image generation; these labels are also in the vicinity of batch_target_labels
-        batch_real_indx = np.ndarray((batch_size_disc, 3), dtype=float) #index of images in the datata; the labels of these images are in the vicinity
+        batch_real_choices = np.ndarray((batch_size_disc, 3), dtype=float) #choices of samples with their labels in the vicinity
 
         batch_start_time = timeit.default_timer()
 
@@ -120,57 +110,20 @@ def train_CCGAN(gen, dis, sigma_kernel, kappa, train_data, uniques, save_models_
                 
             vicinity_end_time = timeit.default_timer()
             vicinity_time = vicinity_end_time - vicinity_start_time
-            times[9] += vicinity_time
+            times[3] += vicinity_time
 
-            labelling_start_time = timeit.default_timer()
+            choice_start_time = timeit.default_timer()
 
-            uniidx = uniques[1][indices]
-            unicts = uniques[2][indices]
-
-            # print(indices)
-            # print(uniidx)
-            # print(unicts)
-
-            rng_choice_start_time = timeit.default_timer()
-            near_cts_cum = np.cumsum(unicts)
-            # print(near_cts_cum)
+            near_cts_cum = np.cumsum(uniques[2][indices])
             choice = rng.integers(near_cts_cum[-1])
-            # print(choice)
-            # idx_idx = np.nonzero(near_cts_cum > rng.integers(near_cts_cum[-1]))[0][0] #argmax, where, or nonzero - nonzero is fastest? try numba or f2py
-            idx_idx = index(near_cts_cum > choice, True)[0]
-            # print(idx_idx)
-
-
-
-            # near_idx = uniidx[indices]
-            # near_cts = unicts[indices]
-            # idx_idx = rng.choice(indices, p=near_cts/np.sum(near_cts))
             
-            rng_choice_end_time = timeit.default_timer()
-            rng_choice_time = rng_choice_end_time - rng_choice_start_time
-            times[14] += rng_choice_time
+            sample_idx = uniques[1][indices][0] + choice
+            batch_real_choices[j] = train_data[sample_idx]
 
-            which_cts = unicts[idx_idx]
-            which_idx = uniidx[idx_idx]
-            # print(which_idx)
-            # sample_idx = rng.integers(which_cts)
-            sample_idx = uniidx[0] + choice
-            # print(sample_idx)
-            # which_row = train_data[which_idx][sample_idx]
-            which_row = train_data[sample_idx]
-            # print(which_row)
+            choice_end_time = timeit.default_timer()
+            choice_time = choice_end_time - choice_start_time
+            times[5] += choice_time
 
-            labelling_end_time = timeit.default_timer()
-
-            labelling_time = labelling_end_time - labelling_start_time
-            times[11] += labelling_time
-            
-            batch_real_indx[j] = which_row
-
-            # exit()
-
-
-        # make the math ops all 1
         bounds_start_time = timeit.default_timer()
         ## labels for fake images generation
         if threshold_type == "hard":
@@ -187,23 +140,20 @@ def train_CCGAN(gen, dis, sigma_kernel, kappa, train_data, uniques, save_models_
 
         bounds_end_time = timeit.default_timer()
         bounds_time = bounds_end_time - bounds_start_time
-        times[12] += bounds_time
+        times[4] += bounds_time
 
         batch_end_time = timeit.default_timer()
 
         ## draw the real image batch from the training set
-        batch_real_samples = batch_real_indx[:, 1:]
-        batch_real_labels = batch_real_indx[:, 0]
+        batch_real_samples = batch_real_choices[:, 1:]
+        batch_real_labels = batch_real_choices[:, 0]
         batch_real_samples = torch.from_numpy(batch_real_samples).type(torch.float).to(device)
         batch_real_labels = torch.from_numpy(batch_real_labels).type(torch.float).to(device)
 
         ## generate the fake image batch
         batch_fake_labels = torch.from_numpy(batch_fake_labels).type(torch.float).to(device)
         z = torch.from_numpy(rng.normal(size=(batch_size_disc, dim_gan))).type(torch.float).to(device)
-        
-        gen_dis_start_time = timeit.default_timer()
         batch_fake_samples = gen(z, batch_fake_labels)
-        gen_dis_end_time = timeit.default_timer()
 
         ## target labels on gpu
         batch_target_labels = torch.from_numpy(batch_target_labels).type(torch.float).to(device)
@@ -217,14 +167,11 @@ def train_CCGAN(gen, dis, sigma_kernel, kappa, train_data, uniques, save_models_
             fake_weights = torch.ones(batch_size_disc, dtype=torch.float).to(device)
 
         # forward pass
-        dis_dis_start_time = timeit.default_timer()
         real_dis_out = dis(batch_real_samples, batch_target_labels)
         fake_dis_out = dis(batch_fake_samples.detach(), batch_target_labels)
-        dis_dis_end_time = timeit.default_timer()
 
         d_loss = - torch.mean(real_weights.reshape(-1) * torch.log(real_dis_out.reshape(-1)+1e-20)) - torch.mean(fake_weights.reshape(-1) * torch.log(1 - fake_dis_out.reshape(-1)+1e-20))
 
-        dis_opt_start_time = timeit.default_timer()
         optimizer_dis.zero_grad()
         d_loss.backward()
         optimizer_dis.step()
@@ -264,29 +211,23 @@ def train_CCGAN(gen, dis, sigma_kernel, kappa, train_data, uniques, save_models_
         batch_target_labels = torch.from_numpy(batch_target_labels).type(torch.float).to(device)
 
         z = torch.from_numpy(rng.normal(size=(batch_size_gene, dim_gan))).type(torch.float).to(device)
-
-        gen_gen_start_time = timeit.default_timer()
         batch_fake_samples = gen(z, batch_target_labels)
-        gen_gen_end_time = timeit.default_timer()
 
         # loss
-        dis_gen_start_time = timeit.default_timer()
         dis_out = dis(batch_fake_samples, batch_target_labels)
-        dis_gen_end_time = timeit.default_timer()
         g_loss = - torch.mean(torch.log(dis_out+1e-20))
 
         # backward
-        gen_opt_start_time = timeit.default_timer()
         optimizer_gen.zero_grad()
         g_loss.backward()
         optimizer_gen.step()
-        gen_train_end_time = timeit.default_timer()
 
         # print loss
         if iter%100 == 0:
-            print("CcGAN: [Iter %d/%d] [D loss: %.4e] [G loss: %.4e] [real prob: %.3f] [fake prob: %.3f] [Time: %.4fs]"%(iter+1, niter, d_loss.item(), g_loss.item(), real_dis_out.mean().item(), fake_dis_out.mean().item(), timeit.default_timer()-start_time))
+            print_time = timeit.default_timer()
+            print("CcGAN: [Iter %d/%d] [D loss: %.4e] [G loss: %.4e] [real prob: %.3f] [fake prob: %.3f] [Time: %.4fs]"%(iter+1, niter, d_loss.item(), g_loss.item(), real_dis_out.mean().item(), fake_dis_out.mean().item(), print_time-start_time))
             if log_file is not None:
-                print("CcGAN: [Iter %d/%d] [D loss: %.4e] [G loss: %.4e] [real prob: %.3f] [fake prob: %.3f] [Time: %.4fs]"%(iter+1, niter, d_loss.item(), g_loss.item(), real_dis_out.mean().item(), fake_dis_out.mean().item(), timeit.default_timer()-start_time), file=log_file)
+                print("CcGAN: [Iter %d/%d] [D loss: %.4e] [G loss: %.4e] [real prob: %.3f] [fake prob: %.3f] [Time: %.4fs]"%(iter+1, niter, d_loss.item(), g_loss.item(), real_dis_out.mean().item(), fake_dis_out.mean().item(), print_time-start_time), file=log_file)
 
         if save_models_dir is not None and ((iter+1) % save_niter_freq == 0 or (iter+1) == niter):
             save_file = save_models_dir + "/checkpoints/CCGAN_iter_{}.pth".format(iter+1)
@@ -305,22 +246,12 @@ def train_CCGAN(gen, dis, sigma_kernel, kappa, train_data, uniques, save_models_
         pre_batch_time = batch_start_time - iter_start_time
         batch_time = batch_end_time - batch_start_time
         post_batch_time = dis_train_end_time - batch_end_time
-        gen_train_time = iter_end_time - dis_train_end_time
-        dis_time = dis_dis_end_time - dis_dis_start_time + dis_gen_end_time - dis_gen_start_time
-        gen_time = gen_dis_end_time - gen_dis_start_time + gen_gen_end_time - gen_gen_start_time
-        dis_opt_time = dis_train_end_time - dis_opt_start_time
-        gen_opt_time = gen_train_end_time - gen_opt_start_time
         total_time = iter_end_time - iter_start_time
 
         times[0] += pre_batch_time
         times[1] += batch_time
         times[2] += post_batch_time
-        times[3] += gen_train_time
-        times[4] += dis_time
-        times[5] += gen_time
-        times[6] += dis_opt_time
-        times[7] += gen_opt_time
-        times[8] += total_time
+        times[6] += total_time
 
     log_file.close()
 
