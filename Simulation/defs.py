@@ -6,14 +6,14 @@ geometry and data of the problem being interpolated.
 ### --- Network/Run parameters --- ###
 root_path = "/home/asatk/Documents/code/cern/asatk-improved_CcGAN/Simulation"   #absolute path to working directory containing project details
 seed = 20               #seed for RNG
-nsim = 1                #num simulations in a run
+nsim = 3                #num simulations in a run
 niter = 5000            #num iterations for which a simulation runs
 niter_resume = 0        #num iterations to resume training on a trained GAN
-niter_save = 1000       #num iterations to save GAN state
+niter_save = 100       #num iterations to save GAN state
 nbatch_d = 1000         #num labels in dis batch
 nbatch_g = 1000         #num labels in gen batch
 sigma_kernel = -1.0     #defines width of kernel/noise for training
-kappa = -2.0            #vicinity parameter (for both hard and soft)
+kappa = -1.0            #vicinity parameter (for both hard and soft) - determines mk if negative
 dim_gan = 2             #dimensions of the GAN, i.e., 2 for 2-D problem - also referred to as latent dimension of GAN? understand what that means
 lr = 5e-5               #learning rate: keep btwn [1e-3, 1e-6]
 geo = 'line'            #determines geometry/problem

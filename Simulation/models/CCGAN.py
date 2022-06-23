@@ -48,28 +48,14 @@ class generator(nn.Module):
                 nn.Linear(self.inner_dim, self.out_dim, bias=bias_g),
             )
 
-    # circle geometry
-    # def forward(self, z, labels):
-    #     z = z.reshape(-1, self.nz)
-
-    #     labels = labels.reshape(-1, 1)*2*np.pi
-    #     z = torch.cat((z, radius*torch.sin(labels), radius*torch.cos(labels)), 1)
-
-    #     if z.is_cuda and self.ngpu > 1:
-    #         output = nn.parallel.data_parallel(self.linear, z, range(self.ngpu))
-    #     else:
-    #         output = self.linear(z)
-    #     return output
-
-    # line geometry
     def forward(self, z, labels):
         z = z.reshape(-1, self.nz)
         labels = labels.reshape(-1, 1)
 
         if self.geo == 'line':
             labels = recover_labels_line_1d(labels)
-            # z = torch.cat((z, torch.multiply(torch.ones((len(labels), 1)), self.val), labels), 1)
-            z = torch.cat((z, labels, torch.multiply(torch.ones((len(labels), 1)), self.val)), 1)
+            z = torch.cat((z, torch.multiply(torch.ones((len(labels), 1)), self.val), labels), 1)
+            # z = torch.cat((z, labels, torch.multiply(torch.ones((len(labels), 1)), self.val)), 1)
         elif self.geo == 'circle':
             labels = labels.reshape(-1, 1)*2*np.pi
             z = torch.cat((z, self.val*torch.sin(labels), self.val*torch.cos(labels)), 1)
@@ -114,31 +100,17 @@ class discriminator(nn.Module):
             nn.Sigmoid()
         )
 
-    # circle geometry
-    # def forward(self, x, labels):
-    #     x = x.reshape(-1, self.input_dim)
-
-    #     labels = labels.reshape(-1, 1)*2*np.pi
-    #     x = torch.cat((x, radius*torch.sin(labels), radius*torch.cos(labels)), 1)
-
-    #     if x.is_cuda and self.ngpu > 1:
-    #         output = nn.parallel.data_parallel(self.main, x, range(self.ngpu))
-    #     else:
-    #         output = self.main(x)
-    #     return output.reshape(-1, 1)
-
-    # line geometry
     def forward(self, x, labels):
         x = x.reshape(-1, self.input_dim)
         labels = labels.reshape(-1, 1)
 
         if self.geo == 'line':
             labels = recover_labels_line_1d(labels)
-            # x = torch.cat((x, torch.multiply(torch.ones((len(labels), 1)), self.val), labels), 1)
-            x = torch.cat((x, labels, torch.multiply(torch.ones((len(labels), 1)), self.val)), 1)
+            x = torch.cat((x, torch.multiply(torch.ones((len(labels), 1)), self.val), labels), 1)
+            # x = torch.cat((x, labels, torch.multiply(torch.ones((len(labels), 1)), self.val)), 1)
         elif self.geo == 'circle':
             labels = labels.reshape(-1, 1)*2*np.pi
-            z = torch.cat((z, self.val*torch.sin(labels), self.val*torch.cos(labels)), 1)
+            x = torch.cat((x, self.val*torch.sin(labels), self.val*torch.cos(labels)), 1)
         else:
             print("Only 'line' and 'circle' geometries are implemented for this network's forward pass")
 

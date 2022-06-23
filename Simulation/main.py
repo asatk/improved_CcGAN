@@ -4,11 +4,14 @@
 
 '''
 
+import argparse
 import datetime
 from json import dump
+from matplotlib import pyplot as plt
 import numpy as np
 import os
 import re
+import sys
 import timeit
 import torch
 import torch.backends.cudnn as cudnn
@@ -16,12 +19,21 @@ import torch.backends.cudnn as cudnn
 import defs
 from models.CCGAN import discriminator
 from models.CCGAN import generator
-from Simulation.train import train_CCGAN
+from train import train_CCGAN
 import train_utils
 
 #######################################################################################
 '''                                   Settings                                      '''
 #######################################################################################
+
+#--------------------------------
+# define run name beforehand with -n flag
+# FILL
+
+# input a simple message if desired with -m flag
+note = ""
+if len(sys.argv) == 2 and sys.argv[1] == '-m':
+    note = input("Add a note for this run: ")
 
 #--------------------------------
 # system
@@ -116,7 +128,7 @@ os.makedirs(save_data_dir,exist_ok=True)
 
 # split into network and geometry properties
 dict_params = {
-    "note": input("Add a note for this run: "),
+    "note": note,
     "date": str(datetime.datetime.now()),
     "run_dir": current_run_dir,
     "seed": defs.seed,
@@ -169,8 +181,6 @@ log_file.close()
 
 start = timeit.default_timer()
 for sim in range(defs.nsim):
-
-    defs.seed += 1
 
     log_file = open(log, 'a+')
 
@@ -228,7 +238,32 @@ for sim in range(defs.nsim):
     filename_gan = save_models_dir + '/CCGAN_niter_{}_sim_{}.pth'.format(defs.niter, sim)
 
     # Start training
-    gen, dis = train_CCGAN(gen, dis, defs.sigma_kernel, defs.kappa, samples_train, sampled_labels_train_norm, save_models_dir=save_models_dir, log=log)
+    # np.set_printoptions(threshold=np.inf)
+    train_data = np.concatenate((np.array([sampled_labels_train_norm]).T, samples_train), axis=1)
+    # train_labels_samples = train_labels_samples[train_labels_samples[:, 0].argsort()]
+    uniques = np.unique(train_data[:, 0], return_index=True, return_counts=True)
+    # train_data_list = np.array(np.split(train_data, uniques[1][1:]), dtype=object)
+    
+    
+    # print(train_data)
+    # print(uniques)
+    # exit()
+
+    # unique_train_labels = np.sort(np.unique(sampled_labels_train_norm))
+
+    gen, dis, times = train_CCGAN(gen, dis, defs.sigma_kernel, defs.kappa, train_data, uniques, save_models_dir=save_models_dir, log=log)
+    
+    time_labels = np.array(['pre_batch', 'batch', 'post_batch', 'gen_train', 'dis', 'gen', 'dis_opt', 'gen_opt', 'total', 'vicinity_time', '', 'labelling_time', 'bounds_time', '', 'rng_choice_time'])
+    select = [1, 9, 11, 12, 14]
+    fig = plt.figure(111, figsize=(9., 9.,))
+    # mpl.style.use('./CCGAN-seaborn.mplstyle')
+    bars = plt.bar(time_labels[select], times[select])
+    for b in bars:
+        height = b.get_height()
+        plt.text(b.get_x() + b.get_width()/2, height, "%.3fs"%(height), ha='center', va='bottom')
+    plt.title("Cumulative Times At Different Training Stages (s)")
+    plt.savefig(current_run_dir + "times_%i.jpg"%(sim))
+    plt.clf()
 
     # Store model
     torch.save({
@@ -237,14 +272,17 @@ for sim in range(defs.nsim):
     }, filename_gan)
 
     for name, module in dis.named_children():
-        print('resetting ', name)
+        print('resetting', name)
         if hasattr(module, 'reset_parameters'):
             module.reset_parameters()
 
     for name, module in gen.named_children():
-        print('resetting ', name)
+        print('resetting', name)
         if hasattr(module, 'reset_parameters'):
             module.reset_parameters()
+
+    # increment seed for next simulation
+    defs.seed += 1
         
 stop = timeit.default_timer()
 log_file = open(log, 'a+')

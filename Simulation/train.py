@@ -3,8 +3,9 @@ Train a regression DCGAN
 
 """
 
-from operator import le
-from joblib import Parallel, delayed
+# from joblib import Parallel, delayed
+from matplotlib import pyplot as plt
+from numba import njit
 import torch
 from typing import Tuple
 import numpy as np
@@ -29,10 +30,20 @@ batch_size_gene = defs.nbatch_g
 
 threshold_type = defs.thresh
 nonzero_soft_weight_threshold = defs.soft_weight_thresh
+n_samples = defs.nsamp
 # rng = torch.manual_seed(defs.seed)
 rng = np.random.default_rng(defs.seed)
 
-def train_CCGAN(gen, dis, sigma_kernel, kappa, train_samples, train_labels, save_models_dir=None, log=None) -> Tuple[generator, discriminator]:
+
+@njit
+def index(array, item):
+    for idx, val in np.ndenumerate(array):
+        if val == item:
+            return idx
+
+def train_CCGAN(gen, dis, sigma_kernel, kappa, train_data, uniques, save_models_dir=None, log=None) -> Tuple[generator, discriminator]:
+
+    times = np.zeros((15,))
 
     if log is not None:
         log_file = open(log, 'a+')
@@ -54,15 +65,17 @@ def train_CCGAN(gen, dis, sigma_kernel, kappa, train_samples, train_labels, save
         optimizer_dis.load_state_dict(checkpoint['optimizerD_state_dict'])
         torch.set_rng_state(checkpoint['rng_state'])
 
-    unique_train_labels = np.sort(np.unique(train_labels))
+    unique_train_labels = uniques[0]
 
     start_time = timeit.default_timer()
 
     for iter in range(defs.niter_resume, niter):
 
+        iter_start_time = timeit.default_timer()
+
         '''  Train Discriminator   '''
         ## randomly draw batch_size_disc y's from unique_train_labels
-        batch_target_labels_raw = rng.choice(unique_train_labels, size=batch_size_disc, replace=True)
+        batch_target_labels_raw = unique_train_labels[rng.integers(len(unique_train_labels), size=batch_size_disc)]
         ## add Gaussian noise; we estimate image distribution conditional on these labels
         batch_epsilons = rng.normal(0, sigma_kernel, batch_size_disc)
         batch_target_labels = batch_target_labels_raw + batch_epsilons
@@ -73,25 +86,23 @@ def train_CCGAN(gen, dis, sigma_kernel, kappa, train_samples, train_labels, save
 
         ## find index of real images with labels in the vicinity of batch_target_labels
         ## generate labels for fake image generation; these labels are also in the vicinity of batch_target_labels
-        batch_real_indx = np.zeros(batch_size_disc, dtype=int) #index of images in the datata; the labels of these images are in the vicinity
-        batch_fake_labels = np.zeros(batch_size_disc)
+        batch_real_indx = np.ndarray((batch_size_disc, 3), dtype=float) #index of images in the datata; the labels of these images are in the vicinity
+
+        batch_start_time = timeit.default_timer()
 
         ## prepare discriminator batch
         for j in range(batch_size_disc):
-        # def d_batch(j):
 
-            # nonlocal batch_target_labels, batch_target_labels_raw, batch_real_indx, batch_fake_labels
+            vicinity_start_time = timeit.default_timer()
 
-            ## index for real images
-            indices = np.ndarray((0,))
-
-            # if threshold_type == "hard":
-            #     indx_real_in_vicinity = np.where(np.abs(train_labels-batch_target_labels[j])<= kappa)[0]
-            # else:
-            #     # reverse the weight function for SVDL
-            #     indx_real_in_vicinity = np.where((train_labels-batch_target_labels[j])**2 <= -np.log(nonzero_soft_weight_threshold)/kappa)[0]
+            if threshold_type == "hard":
+                indices = np.where(np.abs(unique_train_labels-batch_target_labels[j])<= kappa)[0]
+            else:
+                # reverse the weight function for SVDL
+                indices = np.where((unique_train_labels-batch_target_labels[j])**2 <= -np.log(nonzero_soft_weight_threshold)/kappa)[0]
 
             ## if the max gap between two consecutive ordered unique labels is large, it is possible that len(indx_real_in_vicinity)<1
+            
             while len(indices)<1:
                 epsilon_j = rng.normal(0, sigma_kernel, 1)
                 batch_target_labels[j] = batch_target_labels_raw[j] + epsilon_j
@@ -102,36 +113,97 @@ def train_CCGAN(gen, dis, sigma_kernel, kappa, train_samples, train_labels, save
                 #     batch_target_labels[j] = batch_target_labels[j] - 1
                 # index for real images
                 if threshold_type == "hard":
-                    indices = np.where(np.abs(train_labels-batch_target_labels[j])<= kappa)[0]
+                    indices = np.where(np.abs(unique_train_labels-batch_target_labels[j])<= kappa)[0]
                 else:
                     # reverse the weight function for SVDL
-                    indices = np.where((train_labels-batch_target_labels[j])**2 <= -np.log(nonzero_soft_weight_threshold)/kappa)[0]
+                    indices = np.where((unique_train_labels-batch_target_labels[j])**2 <= -np.log(nonzero_soft_weight_threshold)/kappa)[0]
+                
+            vicinity_end_time = timeit.default_timer()
+            vicinity_time = vicinity_end_time - vicinity_start_time
+            times[9] += vicinity_time
 
-            batch_real_indx[j] = rng.choice(indices, size=1)[0]
+            labelling_start_time = timeit.default_timer()
 
-            ## labels for fake images generation
-            if threshold_type == "hard":
-                lb = batch_target_labels[j] - kappa
-                ub = batch_target_labels[j] + kappa
-            else:
-                lb = batch_target_labels[j] - np.sqrt(-np.log(nonzero_soft_weight_threshold)/kappa)
-                ub = batch_target_labels[j] + np.sqrt(-np.log(nonzero_soft_weight_threshold)/kappa)
-            lb = max(0.0, lb); ub = min(ub, 1.0)
+            uniidx = uniques[1][indices]
+            unicts = uniques[2][indices]
 
-            batch_fake_labels[j] = rng.uniform(lb, ub, size=1)[0]
+            # print(indices)
+            # print(uniidx)
+            # print(unicts)
 
-        # Parallel(n_jobs=2, prefer="threads")(delayed(d_batch)(j) for j in range(batch_size_disc))
+            rng_choice_start_time = timeit.default_timer()
+            near_cts_cum = np.cumsum(unicts)
+            # print(near_cts_cum)
+            choice = rng.integers(near_cts_cum[-1])
+            # print(choice)
+            # idx_idx = np.nonzero(near_cts_cum > rng.integers(near_cts_cum[-1]))[0][0] #argmax, where, or nonzero - nonzero is fastest? try numba or f2py
+            idx_idx = index(near_cts_cum > choice, True)[0]
+            # print(idx_idx)
+
+
+
+            # near_idx = uniidx[indices]
+            # near_cts = unicts[indices]
+            # idx_idx = rng.choice(indices, p=near_cts/np.sum(near_cts))
+            
+            rng_choice_end_time = timeit.default_timer()
+            rng_choice_time = rng_choice_end_time - rng_choice_start_time
+            times[14] += rng_choice_time
+
+            which_cts = unicts[idx_idx]
+            which_idx = uniidx[idx_idx]
+            # print(which_idx)
+            # sample_idx = rng.integers(which_cts)
+            sample_idx = uniidx[0] + choice
+            # print(sample_idx)
+            # which_row = train_data[which_idx][sample_idx]
+            which_row = train_data[sample_idx]
+            # print(which_row)
+
+            labelling_end_time = timeit.default_timer()
+
+            labelling_time = labelling_end_time - labelling_start_time
+            times[11] += labelling_time
+            
+            batch_real_indx[j] = which_row
+
+            # exit()
+
+
+        # make the math ops all 1
+        bounds_start_time = timeit.default_timer()
+        ## labels for fake images generation
+        if threshold_type == "hard":
+            lb = batch_target_labels - kappa
+            ub = batch_target_labels + kappa
+        else:
+            lb = batch_target_labels - np.sqrt(-np.log(nonzero_soft_weight_threshold)/kappa)
+            ub = batch_target_labels + np.sqrt(-np.log(nonzero_soft_weight_threshold)/kappa)
+
+        mins = np.apply_along_axis(lambda x: np.maximum(0.0, x), axis=0, arr=lb)
+        maxs = np.apply_along_axis(lambda x: np.minimum(x, 1.0), axis=0, arr=ub)
+        bounds = np.concatenate(([mins], [maxs]), axis=0).T
+        batch_fake_labels = np.apply_along_axis(lambda x: rng.uniform(x[0], x[1]), axis=1, arr=bounds)
+
+        bounds_end_time = timeit.default_timer()
+        bounds_time = bounds_end_time - bounds_start_time
+        times[12] += bounds_time
+
+        batch_end_time = timeit.default_timer()
 
         ## draw the real image batch from the training set
-        batch_real_samples = train_samples[batch_real_indx]
-        batch_real_labels = train_labels[batch_real_indx]
+        batch_real_samples = batch_real_indx[:, 1:]
+        batch_real_labels = batch_real_indx[:, 0]
         batch_real_samples = torch.from_numpy(batch_real_samples).type(torch.float).to(device)
         batch_real_labels = torch.from_numpy(batch_real_labels).type(torch.float).to(device)
 
         ## generate the fake image batch
         batch_fake_labels = torch.from_numpy(batch_fake_labels).type(torch.float).to(device)
         z = torch.from_numpy(rng.normal(size=(batch_size_disc, dim_gan))).type(torch.float).to(device)
+        
+        gen_dis_start_time = timeit.default_timer()
         batch_fake_samples = gen(z, batch_fake_labels)
+        gen_dis_end_time = timeit.default_timer()
 
         ## target labels on gpu
         batch_target_labels = torch.from_numpy(batch_target_labels).type(torch.float).to(device)
@@ -145,14 +217,19 @@ def train_CCGAN(gen, dis, sigma_kernel, kappa, train_samples, train_labels, save
             fake_weights = torch.ones(batch_size_disc, dtype=torch.float).to(device)
 
         # forward pass
+        dis_dis_start_time = timeit.default_timer()
         real_dis_out = dis(batch_real_samples, batch_target_labels)
         fake_dis_out = dis(batch_fake_samples.detach(), batch_target_labels)
+        dis_dis_end_time = timeit.default_timer()
 
         d_loss = - torch.mean(real_weights.reshape(-1) * torch.log(real_dis_out.reshape(-1)+1e-20)) - torch.mean(fake_weights.reshape(-1) * torch.log(1 - fake_dis_out.reshape(-1)+1e-20))
 
+        dis_opt_start_time = timeit.default_timer()
         optimizer_dis.zero_grad()
         d_loss.backward()
         optimizer_dis.step()
+
+        dis_train_end_time = timeit.default_timer()
 
         '''  Train Generator   '''
         gen.train()
@@ -187,16 +264,23 @@ def train_CCGAN(gen, dis, sigma_kernel, kappa, train_samples, train_labels, save
         batch_target_labels = torch.from_numpy(batch_target_labels).type(torch.float).to(device)
 
         z = torch.from_numpy(rng.normal(size=(batch_size_gene, dim_gan))).type(torch.float).to(device)
+
+        gen_gen_start_time = timeit.default_timer()
         batch_fake_samples = gen(z, batch_target_labels)
+        gen_gen_end_time = timeit.default_timer()
 
         # loss
+        dis_gen_start_time = timeit.default_timer()
         dis_out = dis(batch_fake_samples, batch_target_labels)
+        dis_gen_end_time = timeit.default_timer()
         g_loss = - torch.mean(torch.log(dis_out+1e-20))
 
         # backward
+        gen_opt_start_time = timeit.default_timer()
         optimizer_gen.zero_grad()
         g_loss.backward()
         optimizer_gen.step()
+        gen_train_end_time = timeit.default_timer()
 
         # print loss
         if iter%100 == 0:
@@ -215,6 +299,29 @@ def train_CCGAN(gen, dis, sigma_kernel, kappa, train_samples, train_labels, save
                     'rng_state': torch.get_rng_state()
             }, save_file)
 
+        iter_end_time = timeit.default_timer()
+
+        
+        pre_batch_time = batch_start_time - iter_start_time
+        batch_time = batch_end_time - batch_start_time
+        post_batch_time = dis_train_end_time - batch_end_time
+        gen_train_time = iter_end_time - dis_train_end_time
+        dis_time = dis_dis_end_time - dis_dis_start_time + dis_gen_end_time - dis_gen_start_time
+        gen_time = gen_dis_end_time - gen_dis_start_time + gen_gen_end_time - gen_gen_start_time
+        dis_opt_time = dis_train_end_time - dis_opt_start_time
+        gen_opt_time = gen_train_end_time - gen_opt_start_time
+        total_time = iter_end_time - iter_start_time
+
+        times[0] += pre_batch_time
+        times[1] += batch_time
+        times[2] += post_batch_time
+        times[3] += gen_train_time
+        times[4] += dis_time
+        times[5] += gen_time
+        times[6] += dis_opt_time
+        times[7] += gen_opt_time
+        times[8] += total_time
+
     log_file.close()
 
-    return gen, dis
+    return gen, dis, times
