@@ -4,8 +4,6 @@ import numpy as np
 
 from train_utils import recover_labels_line_1d
 
-radius = 1.
-
 #########################################################
 # generator
 bias_g = False
@@ -37,13 +35,13 @@ class generator(nn.Module):
                 nn.BatchNorm1d(self.inner_dim),
                 nn.ReLU(True),
 
-                # nn.Linear(self.inner_dim, self.inner_dim, bias=bias_g),
-                # nn.BatchNorm1d(self.inner_dim),
-                # nn.ReLU(True),
+                nn.Linear(self.inner_dim, self.inner_dim, bias=bias_g),
+                nn.BatchNorm1d(self.inner_dim),
+                nn.ReLU(True),
 
-                # nn.Linear(self.inner_dim, self.inner_dim, bias=bias_g),
-                # nn.BatchNorm1d(self.inner_dim),
-                # nn.ReLU(True),
+                nn.Linear(self.inner_dim, self.inner_dim, bias=bias_g),
+                nn.BatchNorm1d(self.inner_dim),
+                nn.ReLU(True),
 
                 nn.Linear(self.inner_dim, self.out_dim, bias=bias_g),
             )
@@ -90,11 +88,11 @@ class discriminator(nn.Module):
             nn.Linear(self.inner_dim, self.inner_dim, bias=bias_d),
             nn.ReLU(True),
 
-            # nn.Linear(self.inner_dim, self.inner_dim, bias=bias_d),
-            # nn.ReLU(True),
+            nn.Linear(self.inner_dim, self.inner_dim, bias=bias_d),
+            nn.ReLU(True),
 
-            # nn.Linear(self.inner_dim, self.inner_dim, bias=bias_d),
-            # nn.ReLU(True),
+            nn.Linear(self.inner_dim, self.inner_dim, bias=bias_d),
+            nn.ReLU(True),
 
             nn.Linear(self.inner_dim, 1, bias=bias_d),
             nn.Sigmoid()

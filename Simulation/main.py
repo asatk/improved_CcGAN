@@ -104,7 +104,6 @@ dis = discriminator(ngpu=NGPU, input_dim=n_features, val=defs.val, geo=defs.geo)
 nlinear_g = len([m for m in gen.modules() if isinstance(m, torch.nn.Linear)])
 nlinear_d = len([m for m in dis.modules() if isinstance(m, torch.nn.Linear)])
 
-
 #-------------------------------
 # output folders
 runs = np.empty((0,), dtype=int)
@@ -238,32 +237,10 @@ for sim in range(defs.nsim):
     filename_gan = save_models_dir + '/CCGAN_niter_{}_sim_{}.pth'.format(defs.niter, sim)
 
     # Start training
-    # np.set_printoptions(threshold=np.inf)
     train_data = np.concatenate((np.array([sampled_labels_train_norm]).T, samples_train), axis=1)
-    # train_labels_samples = train_labels_samples[train_labels_samples[:, 0].argsort()]
     uniques = np.unique(train_data[:, 0], return_index=True, return_counts=True)
-    # train_data_list = np.array(np.split(train_data, uniques[1][1:]), dtype=object)
-    
-    
-    # print(train_data)
-    # print(uniques)
-    # exit()
 
-    # unique_train_labels = np.sort(np.unique(sampled_labels_train_norm))
-
-    gen, dis, times = train_CCGAN(gen, dis, defs.sigma_kernel, defs.kappa, train_data, uniques, save_models_dir=save_models_dir, log=log)
-    
-    time_labels = np.array(['pre_batch', 'batch', 'post_batch', 'vicinity_time', 'bounds_time', 'labelling_time', 'total'])
-    select = [1, 3, 5, 4]
-    fig = plt.figure(111, figsize=(9., 9.,))
-    # mpl.style.use('./CCGAN-seaborn.mplstyle')
-    bars = plt.bar(time_labels[select], times[select])
-    for b in bars:
-        height = b.get_height()
-        plt.text(b.get_x() + b.get_width()/2, height, "%.3fs"%(height), ha='center', va='bottom')
-    plt.title("Cumulative Times At Different Training Stages (s)")
-    plt.savefig(current_run_dir + "times_%i.jpg"%(sim))
-    plt.clf()
+    gen, dis = train_CCGAN(gen, dis, defs.sigma_kernel, defs.kappa, train_data, uniques, save_models_dir=save_models_dir, log=log)
 
     # Store model
     torch.save({
