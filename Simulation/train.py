@@ -4,7 +4,6 @@ Train a regression DCGAN
 """
 
 import torch
-from typing import Tuple
 import numpy as np
 import os
 import timeit
@@ -31,7 +30,7 @@ n_samples = defs.nsamp
 
 rng = np.random.default_rng(defs.seed)
 
-def train_CCGAN(gen, dis, sigma_kernel, kappa, train_data, uniques, save_models_dir=None, log=None) -> Tuple[generator, discriminator]:
+def train_net(gen: generator, dis: discriminator, sigma_kernel: float, kappa: float, train_data: np.ndarray, uniques: list[np.ndarray], save_models_dir: str=None, log: str=None) -> tuple[generator, discriminator]:
 
     if log is not None:
         log_file = open(log, 'a+')
@@ -66,9 +65,12 @@ def train_CCGAN(gen, dis, sigma_kernel, kappa, train_data, uniques, save_models_
         batch_epsilons = rng.normal(0, sigma_kernel, batch_size_disc)
         batch_target_labels = batch_target_labels_raw + batch_epsilons
 
-        ## only for similation - THESE CAUSED EDGE CASE ISSUES
-        # batch_target_labels[batch_target_labels<0] = batch_target_labels[batch_target_labels<0] + 1
-        # batch_target_labels[batch_target_labels>1] = batch_target_labels[batch_target_labels>1] - 1
+        # push epsilon inside?
+        oob_labels = np.abs(batch_target_labels - 0.5) > 0.5
+
+        if len(oob_labels) != 0:
+            print("pushing epsilons inside: ", batch_target_labels[oob_labels], file=log_file)
+            batch_target_labels[oob_labels] = batch_target_labels_raw[oob_labels] - batch_epsilons[oob_labels]
 
         ## find real samples with labels in the vicinity of batch_target_labels
         ## generate labels for fake image generation; these labels are also in the vicinity of batch_target_labels
@@ -87,11 +89,12 @@ def train_CCGAN(gen, dis, sigma_kernel, kappa, train_data, uniques, save_models_
             while len(indices)<1:
                 epsilon_j = rng.normal(0, sigma_kernel, 1)
                 batch_target_labels[j] = batch_target_labels_raw[j] + epsilon_j
-                # ## only for similation - BAD
-                # if batch_target_labels[j]<0:
-                #     batch_target_labels[j] = batch_target_labels[j] + 1
-                # if batch_target_labels[j]>1:
-                #     batch_target_labels[j] = batch_target_labels[j] - 1
+                
+                # push epsilon inside?
+                if np.abs(batch_target_labels[j] - 0.5) > 0.5:
+                    print("pushing epsilon inside: ", batch_target_labels[j], file=log_file)
+                    batch_target_labels[j] = batch_target_labels_raw - epsilon_j
+
                 # index for real images
                 if threshold_type == "hard":
                     indices = np.where(np.abs(unique_train_labels-batch_target_labels[j])<= kappa)[0]
@@ -159,25 +162,12 @@ def train_CCGAN(gen, dis, sigma_kernel, kappa, train_data, uniques, save_models_
         ## add Gaussian noise; we estimate image distribution conditional on these labels
         batch_epsilons = rng.normal(0, sigma_kernel, batch_size_gene)
         batch_target_labels = batch_target_labels_raw + batch_epsilons
-        # if labels are cyclic, cycle labels to be between 0. and 1.
-        # batch_target_labels[batch_target_labels<0] = batch_target_labels[batch_target_labels<0] + 1
-        # batch_target_labels[batch_target_labels>1] = batch_target_labels[batch_target_labels>1] - 1
-        # set out-of-bounds labels to be instead on the boundary
-        # batch_target_labels[batch_target_labels<0] = 0
-        # batch_target_labels[batch_target_labels>1] = 1
-        # constrain labels between 0. and 1. not inclusive
-        
-        # #fix out-of-bounds raw labels
-        # batch_labels_oob_init_indx = np.where(np.abs(batch_target_labels - 0.5) >= 0.5)
-        # batch_labels_oob = batch_target_labels_raw[batch_labels_oob_init_indx]
-        # while len(batch_labels_oob) != 0:
-        #     print("re-nudging oob raw labels")
-        #     batch_epsilons_oob = rng.normal(0, sigma_kernel, len(batch_labels_oob))
-        #     batch_labels_oob = batch_target_labels_raw[batch_labels_oob_init_indx] + batch_epsilons_oob
-        #     batch_labels_oob_indx = batch_labels_oob_init_indx[np.where(np.abs(batch_labels_oob - 0.5) >= 0.5)]
-        #     batch_labels_inb_indx = np.setdiff1d(batch_labels_oob_init_indx, batch_labels_oob_indx)
 
-        #     batch_target_labels[batch_labels_inb_indx] = batch_labels_oob[np.abs(batch_labels_oob - 0.5) < 0.5]
+        # push epsilon inside?
+        oob_labels = np.abs(batch_target_labels - 0.5) > 0.5
+        if len(oob_labels) != 0:
+            print("pushing epsilons inside: ", batch_target_labels[oob_labels], file=log_file)
+            batch_target_labels[oob_labels] = batch_target_labels_raw[oob_labels] - batch_epsilons[oob_labels]
         
         # batch_target_labels = batch_target_labels[np.abs(batch_target_labels - 0.5) < 0.5]
         batch_target_labels = torch.from_numpy(batch_target_labels).type(torch.float).to(device)

@@ -19,7 +19,7 @@ import torch.backends.cudnn as cudnn
 import defs
 from models.CCGAN import discriminator
 from models.CCGAN import generator
-from train import train_CCGAN
+from train import train_net
 import train_utils
 
 #######################################################################################
@@ -51,31 +51,31 @@ cudnn.benchmark = False
 # How to calculate labels and gaus peak points given the geometry of the
 # problem (e.g. circle vs line)
 
-def train_labels(n_train):
+def train_labels(n_train: int) -> np.ndarray:
     if (defs.geo == "circle"):
         return train_utils.train_labels_circle(n_train)
     elif (defs.geo == "line"):
         return train_utils.train_labels_line_1d(n_train)
 
-def test_labels(n_test):
+def test_labels(n_test: int) -> np.ndarray:
     if (defs.geo == "circle"):
         return train_utils.test_labels_circle(n_test)
     elif (defs.geo == "line"):
         return train_utils.test_labels_line_1d(n_test)
     
-def normalize_labels(labels):
+def normalize_labels(labels: np.ndarray) -> np.ndarray:
     if (defs.geo == "circle"):
         return train_utils.normalize_labels_circle(labels)
     elif (defs.geo == "line"):
         return train_utils.normalize_labels_line_1d(labels)
 
-def gaus_point(labels):
+def gaus_point(labels: np.ndarray) -> np.ndarray:
     if (defs.geo == "circle"):
         return train_utils.gaus_point_circle(labels, defs.val)
     elif (defs.geo == "line"):
         return train_utils.gaus_point_line_1d(labels, defs.val)
 
-def plot_lims():
+def plot_lims() -> np.ndarray:
     if (defs.geo == "circle"):
         return train_utils.plot_lims_circle(radius=defs.val)
     elif (defs.geo == "line"):
@@ -84,15 +84,11 @@ def plot_lims():
 def cov_mtx(labels):
     return train_utils.cov_change_const(labels, train_utils.cov_xy(defs.sigma_gaus))
 
+# dimensions of samples
 n_features = 2 # 2-D is this just dim_gan?? need to understand what that is
 
-#------------------------------------------------------------------------------
-# Training and Testings Grids
-test_label_grid_res = 100   # 100x more labels to test from than training data
 # labels for training
 labels_train = train_labels(defs.ngaus)
-# labels for evaluation
-labels_test_all = test_labels(defs.ngaus * test_label_grid_res)
 
 ### threshold to determine high quality samples
 quality_threshold = defs.sigma_gaus*4 #good samples are within 4 standard deviation
@@ -240,7 +236,7 @@ for sim in range(defs.nsim):
     train_data = np.concatenate((np.array([sampled_labels_train_norm]).T, samples_train), axis=1)
     uniques = np.unique(train_data[:, 0], return_index=True, return_counts=True)
 
-    gen, dis = train_CCGAN(gen, dis, defs.sigma_kernel, defs.kappa, train_data, uniques, save_models_dir=save_models_dir, log=log)
+    gen, dis = train_net(gen, dis, defs.sigma_kernel, defs.kappa, train_data, uniques, save_models_dir=save_models_dir, log=log)
 
     # Store model
     torch.save({

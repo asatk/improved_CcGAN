@@ -1,6 +1,6 @@
+import numpy as np
 import torch
 import torch.nn as nn
-import numpy as np
 
 from train_utils import recover_labels_line_1d
 
@@ -118,7 +118,7 @@ class discriminator(nn.Module):
             output = self.main(x)
         return output.reshape(-1, 1)
 
-if __name__=="__main__":
+if __name__ == "__main__":
     import numpy as np
     #test
     ngpu=1

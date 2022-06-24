@@ -14,6 +14,7 @@ import ROOT
 from sys import argv
 import torch
 
+import analysis_utils
 from models.CCGAN import generator
 import train_utils
 
@@ -102,7 +103,7 @@ for i in range(n_gaussians):
     
     label_i = labels_norm[i * n_samples_train]
 
-    fake_samples_i, _ = train_utils.sample_gen_for_label(gen, n_samples_fake, label_i, batch_size=n_samples_fake)
+    fake_samples_i, _ = analysis_utils.sample_gen_for_label(gen, n_samples_fake, label_i, batch_size=n_samples_fake)
     fake_samples = np.concatenate((fake_samples, fake_samples_i), axis=0)
 
 # Select out certain gaussian and its samples for plotting purposes
