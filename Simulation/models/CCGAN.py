@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-import torch.nn as nn
+import torch.nn as nn   
 
 from train_utils import recover_labels_line_1d
 
@@ -39,14 +39,14 @@ class generator(nn.Module):
                 nn.BatchNorm1d(self.inner_dim),
                 nn.ReLU(True),
 
-                nn.Linear(self.inner_dim, self.inner_dim, bias=bias_g),
-                nn.BatchNorm1d(self.inner_dim),
-                nn.ReLU(True),
+                # nn.Linear(self.inner_dim, self.inner_dim, bias=bias_g),
+                # nn.BatchNorm1d(self.inner_dim),
+                # nn.ReLU(True),
 
                 nn.Linear(self.inner_dim, self.out_dim, bias=bias_g),
             )
 
-    def forward(self, z, labels):
+    def forward(self, z: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
         z = z.reshape(-1, self.nz)
         labels = labels.reshape(-1, 1)
 
@@ -70,7 +70,7 @@ class generator(nn.Module):
 # discriminator
 bias_d=False
 class discriminator(nn.Module):
-    def __init__(self, ngpu=1, input_dim = 2, val=1, geo='line'):
+    def __init__(self, ngpu=1, input_dim=2, val=1, geo='line'):
         super(discriminator, self).__init__()
         self.ngpu = ngpu
         self.input_dim = input_dim
@@ -91,14 +91,14 @@ class discriminator(nn.Module):
             nn.Linear(self.inner_dim, self.inner_dim, bias=bias_d),
             nn.ReLU(True),
 
-            nn.Linear(self.inner_dim, self.inner_dim, bias=bias_d),
-            nn.ReLU(True),
+            # nn.Linear(self.inner_dim, self.inner_dim, bias=bias_d),
+            # nn.ReLU(True),
 
             nn.Linear(self.inner_dim, 1, bias=bias_d),
             nn.Sigmoid()
         )
 
-    def forward(self, x, labels):
+    def forward(self, x: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
         x = x.reshape(-1, self.input_dim)
         labels = labels.reshape(-1, 1)
 

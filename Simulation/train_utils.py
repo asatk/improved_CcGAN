@@ -59,7 +59,7 @@ def normalize_labels_line_1d(labels: np.ndarray) -> np.ndarray:
     return np.divide(np.subtract(labels, defs.xmin), (defs.xmax - defs.xmin))
 
 def recover_labels_line_1d(labels: np.ndarray) -> np.ndarray:
-    return np.add(np.multiply(labels, (defs.xmax - defs.xmin)), defs.xmax)
+    return np.add(np.multiply(labels, (defs.xmax - defs.xmin)), defs.xmin)
 
 def gaus_point_circle(labels: np.ndarray, radius: float) -> np.ndarray:
     return np.multiply([np.sin(labels), np.cos(labels)], radius).T

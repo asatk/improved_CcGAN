@@ -266,3 +266,6 @@ print("GAN training finished; Time elapsed: {:04f}s".format(stop - start), file=
 print("\n{}, Sigma is {:04f}, Kappa is {:04f}".format(defs.thresh, defs.sigma_kernel, defs.kappa), file=log_file)
 print("\n===================================================================================================", file=log_file)
 log_file.close()
+
+#terminal bell character to indicate completion
+print('\a')

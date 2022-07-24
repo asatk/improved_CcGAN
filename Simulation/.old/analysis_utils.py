@@ -8,10 +8,10 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
-from train_utils import sample_gen_for_label
+from analysis_utils import sample_gen_for_label
 from utils import two_wasserstein
 
-def l2_analysis(netG, n_samples, labels_norm, gaus_points, quality_threshold):
+def l2_analysis(generator, n_samples, labels_norm, gaus_points, quality_threshold):
     
     prop_recovered_modes = 0
     l2_dis_fake_samples = np.empty((0,), dtype=float)
@@ -22,7 +22,7 @@ def l2_analysis(netG, n_samples, labels_norm, gaus_points, quality_threshold):
         label_norm_i = labels_norm[i]
         gaus_point_i = np.repeat(gaus_points[i].reshape(1, dim), n_samples, axis=0)
         
-        fake_samples_i, _ = sample_gen_for_label(netG, n_samples, label_norm_i, batch_size=n_samples)
+        fake_samples_i, _ = sample_gen_for_label(generator, n_samples, label_norm_i, batch_size=n_samples)
 
         #l2 distance between a fake sample and its mean
         l2_dis_fake_samples_i = np.sqrt(np.sum((fake_samples_i-gaus_point_i)**2, axis=1))
@@ -38,7 +38,7 @@ def l2_analysis(netG, n_samples, labels_norm, gaus_points, quality_threshold):
 
     return prop_recovered_modes, prop_good_samples
 
-def plot_analysis(netG, n_samples, n_gaussians, samples_real, labels, normalize_fn, plot_lims_fn, filename=None, fig_size=10):
+def plot_analysis(generator, n_samples, n_gaussians, samples_real, labels, normalize_fn, plot_lims_fn, filename=None, fig_size=10):
     
     if filename == None:
         filename = "./plot_analysis.jpg"
@@ -51,7 +51,7 @@ def plot_analysis(netG, n_samples, n_gaussians, samples_real, labels, normalize_
         
         label_i = labels_norm[i]
 
-        fake_samples_i, _ = sample_gen_for_label(netG, n_samples, label_i, batch_size=n_samples)
+        fake_samples_i, _ = sample_gen_for_label(generator, n_samples, label_i, batch_size=n_samples)
         fake_samples = np.concatenate((fake_samples, fake_samples_i), axis=0)
     
     # n_samples_plot = n_samples
@@ -104,7 +104,7 @@ def plot_analysis(netG, n_samples, n_gaussians, samples_real, labels, normalize_
     # plt.legend(loc=1)
     plt.savefig(filename[:-4] + "_RES" + ".jpg")
 
-def two_was_analysis(netG, n_samples, labels_norm, gaus_points, cov_mtxs):
+def two_was_analysis(generator, n_samples, labels_norm, gaus_points, cov_mtxs):
     two_w_dist_all = np.empty((0,1), dtype=float)
     for i in tqdm(range(len(labels_norm))):
         label_norm_i = labels_norm[i]
@@ -112,7 +112,7 @@ def two_was_analysis(netG, n_samples, labels_norm, gaus_points, cov_mtxs):
         cov_mtx_i = cov_mtxs[i]
         
         # sample from trained GAN
-        fake_samples_i, _ = sample_gen_for_label(netG, n_samples, label_norm_i, batch_size=n_samples)
+        fake_samples_i, _ = sample_gen_for_label(generator, n_samples, label_norm_i, batch_size=n_samples)
 
         # the sample mean and sample cov of fake samples with current label
         fake_point_mean_i = np.mean(fake_samples_i, axis = 0)

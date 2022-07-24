@@ -80,12 +80,12 @@ def train_net(gen: generator, dis: discriminator, sigma_kernel: float, kappa: fl
         for j in range(batch_size_disc):
 
             if threshold_type == "hard":
-                indices = np.where(np.abs(unique_train_labels-batch_target_labels[j])<= kappa)[0]
+                indices = np.where(np.abs(unique_train_labels-batch_target_labels[j]) <= kappa)[0]
             else:
                 # reverse the weight function for SVDL
-                indices = np.where((unique_train_labels-batch_target_labels[j])**2 <= -np.log(nonzero_soft_weight_threshold)/kappa)[0]
+                indices = np.where((unique_train_labels-batch_target_labels[j])**2 <= -np.log(nonzero_soft_weight_threshold) / kappa)[0]
 
-            ## if the max gap between two consecutive ordered unique labels is large, it is possible that len(indx_real_in_vicinity)<1
+            ## if the max gap between two consecutive ordered unique labels is large, it is possible that len(indices)<1
             while len(indices)<1:
                 epsilon_j = rng.normal(0, sigma_kernel, 1)
                 batch_target_labels[j] = batch_target_labels_raw[j] + epsilon_j
@@ -97,10 +97,10 @@ def train_net(gen: generator, dis: discriminator, sigma_kernel: float, kappa: fl
 
                 # index for real images
                 if threshold_type == "hard":
-                    indices = np.where(np.abs(unique_train_labels-batch_target_labels[j])<= kappa)[0]
+                    indices = np.where(np.abs(unique_train_labels-batch_target_labels[j]) <= kappa)[0]
                 else:
                     # reverse the weight function for SVDL
-                    indices = np.where((unique_train_labels-batch_target_labels[j])**2 <= -np.log(nonzero_soft_weight_threshold)/kappa)[0]
+                    indices = np.where((unique_train_labels-batch_target_labels[j])**2 <= -np.log(nonzero_soft_weight_threshold) / kappa)[0]
 
             near_cts_cum = np.cumsum(uniques[2][indices])
             choice = rng.integers(near_cts_cum[-1])
@@ -178,6 +178,21 @@ def train_net(gen: generator, dis: discriminator, sigma_kernel: float, kappa: fl
         # loss
         dis_out = dis(batch_fake_samples, batch_target_labels)
         g_loss = - torch.mean(torch.log(dis_out+1e-20))
+
+        # lipschitz correction for generator regularization (smooth out interp)
+        
+        # noise_std = sigma_kernel
+        # gp_lambda = 1.
+
+        # eps = rng.uniform(batch_size_gene)
+        # fake_interp_labels = torch.from_numpy(eps * batch_target_labels + (1 - eps) * batch_target_labels).type(torch.float).to(device)
+        
+        # fake_interp_samples = gen(z, fake_interp_labels)
+        # fake_interp_samples_noise = gen(z, fake_interp_samples + noise_std)
+        # g_noise_out_dist = torch.mean(torch.abs(fake_interp_samples - fake_interp_samples_noise), dim=(1,2,3,4))
+        # g_loss_correction = g_noise_out_dist * gp_lambda
+        # g_loss += g_loss_correction
+        
 
         # backward
         optimizer_gen.zero_grad()

@@ -32,6 +32,9 @@ plot_lims_fn = train_utils.plot_lims_line_1d
 run_dir = params['run_dir']
 nsim = int(params['nsim'])
 
+#don't show plots if kTrue
+ROOT.gROOT.SetBatch(ROOT.kTRUE)
+
 # Plotting settings
 mpl.style.use('./CCGAN-seaborn.mplstyle')
 plt.switch_backend('agg')
@@ -257,10 +260,16 @@ for i in range(n_gaussians_plot):
     canv.SaveAs(filename_yreal_one_jpg%(i + 1))
     canv.Clear()
 
+    histx_real_first = histx.Clone()
+
+    histy_real_first = histy.Clone()
+
     # reset functions and histogram after every fit
     hist.Reset("ICES")
     gaus2d.SetParameters(1., xguess, 0.075, 0.5, 0.075)
     gaus1d.SetParameters(1., xguess, 0.075)
+
+    break
 
 # Plot Fake Samples
 for j in range(n_gaussians_plot):
@@ -301,7 +310,81 @@ for j in range(n_gaussians_plot):
     canv.SaveAs(filename_yfake_one_jpg%(j + 1))
     canv.Clear()
 
+    histx_fake_first = histx.Clone()
+
+    histy_fake_first = histy.Clone()
+
     # reset functions and histogram after every fit
     hist.Reset("ICES")
     gaus2d.SetParameters(1., xguess, 0.075, 0.5, 0.075)
     gaus1d.SetParameters(1., xguess, 0.075)
+
+    break
+
+ROOT.gStyle.SetOptFit(0)
+
+mx = 1.05 * max(histx_real_first.GetMaximum(), histx_fake_first.GetMaximum())
+
+histx_real_first.SetLineColor(ROOT.kRed)
+histx_real_first.SetMaximum(mx)
+histx_real_first.SetTitle("Real and Fake Samples (X)")
+histx_real_first.Draw("HIST")
+histx_fake_first.Draw("HIST SAME")
+
+meanx_real = histx_real_first.GetFunction("gaus1d").GetParameter("Mean")
+meanx_fake = histx_fake_first.GetFunction("gaus1d").GetParameter("Mean")
+
+lx_real = ROOT.TLine(meanx_real, 0.0, meanx_real, mx)
+lx_real.SetLineColor(ROOT.kRed)
+lx_real.SetLineWidth(2)
+lx_real.SetLineStyle(2)
+lx_fake = ROOT.TLine(meanx_fake, 0.0, meanx_fake, mx)
+lx_fake.SetLineColor(ROOT.kBlue)
+lx_fake.SetLineWidth(2)
+lx_fake.SetLineStyle(2)
+
+lx_real.Draw("")
+lx_fake.Draw("")
+
+legend = ROOT.TLegend(0.625, 0.725, 0.875, 0.875)
+legend.AddEntry(histx_real_first, "Real Histogram", "l")
+legend.AddEntry(lx_real, "Real Mean %.04f"%(meanx_real), "l")
+legend.AddEntry(histx_fake_first, "Fake Histogram", "l")
+legend.AddEntry(lx_fake, "Fake Mean %.04f"%(meanx_fake), "l")
+legend.Draw()
+
+canv.SaveAs(save_data_dir + "x_01_both.jpg")
+canv.Clear()
+
+my = 1.05 * max(histy_real_first.GetMaximum(), histy_fake_first.GetMaximum())
+
+histy_real_first.SetLineColor(ROOT.kRed)
+histy_real_first.SetMaximum(my)
+histy_real_first.SetTitle("Real and Fake Samples (Y)")
+histy_real_first.Draw("HIST")
+histy_fake_first.Draw("HIST SAME")
+
+meany_real = histy_real_first.GetFunction("gaus1d").GetParameter("Mean")
+meany_fake = histy_fake_first.GetFunction("gaus1d").GetParameter("Mean")
+
+ly_real = ROOT.TLine(meany_real, 0.0, meany_real, my)
+ly_real.SetLineColor(ROOT.kRed)
+ly_real.SetLineWidth(2)
+ly_real.SetLineStyle(2)
+ly_fake = ROOT.TLine(meany_fake, 0.0, meany_fake, my)
+ly_fake.SetLineColor(ROOT.kBlue)
+ly_fake.SetLineWidth(2)
+ly_fake.SetLineStyle(2)
+
+ly_real.Draw("")
+ly_fake.Draw("")
+
+legend = ROOT.TLegend(0.625, 0.725, 0.875, 0.875)
+legend.AddEntry(histy_real_first, "Real Histogram", "l")
+legend.AddEntry(ly_real, "Real Mean %.04f"%(meany_real), "l")
+legend.AddEntry(histy_fake_first, "Fake Histogram", "l")
+legend.AddEntry(ly_fake, "Fake Mean %.04f"%(meany_fake), "l")
+legend.Draw()
+
+canv.SaveAs(save_data_dir + "y_01_both.jpg")
+canv.Clear()
