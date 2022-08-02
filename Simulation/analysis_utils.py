@@ -1,15 +1,15 @@
 '''
-Definitions of utility functions for analyzing CCGAN.
+Definitions of utility functions for analyzing CCGAN performance.
 
 Author: Anthony Atkinson
 '''
 
 from models.CCGAN import generator
+from matplotlib import pyplot as plt
 import numpy as np
-from PIL import Image
 import torch
 
-def sample_gen_for_label(gen: generator, n_samples: int, label: float, path: str=None, batch_size: int=500, n_dim: int=2) -> tuple[np.ndarray, np.ndarray]:
+def sample_gen_for_label(gen: generator, n_samples: int, label: float, batch_size: int=500, n_dim: int=2) -> tuple[np.ndarray, np.ndarray]:
     '''
     label: normalized label in [0,1]
     '''
@@ -41,12 +41,66 @@ def sample_gen_for_label(gen: generator, n_samples: int, label: float, path: str
             if sample_count + batch_size > n_samples:
                 batch_size = n_samples - sample_count
 
-    if path is not None:
-        raw_fake_samples = (fake_samples*0.5+0.5)*255.0
-        raw_fake_samples = raw_fake_samples.astype(np.uint8)
-        for i in range(n_samples):
-            filename = path + '/' + str(i) + '.jpg'
-            im = Image.fromarray(raw_fake_samples[i][0], mode='L')
-            im = im.save(filename)
-
     return fake_samples, fake_labels
+
+def plot_histogram(data: np.ndarray, filename: str, vmin: float=0.0, vmax: float=1.0, title: str="", x_axis_label: str="", y_axis_label: str="", **kwargs) -> None:
+    '''
+    data: bins x bins histogram
+    filename: file system location where the histogram image is output
+    vmin: minimum of histogram
+    vmax: maximum of histogram
+    x_axis_label: string label of x axis
+    y_axis_label: string label of y axis
+    kwargs: plotting kws
+
+    Returns: None. Saves a figure.
+    '''
+
+    if kwargs['cmap'] is None:
+        cmap = 'inferno'
+    if kwargs['origin'] is None:
+        origin = 'lower'
+    if kwargs['facecolor'] is None:
+        facecolor = 'black'
+
+    plt.figure(facecolor=facecolor)
+    plt.title(title)
+    plt.xlabel(x_axis_label)
+    plt.ylabel(y_axis_label)
+    im = plt.imshow(data.T, cmap=cmap, origin=origin, vmin=vmin, vmax=vmax, extent=plot_lims_fn().flatten())
+    plt.gca().use_sticky_edges = False
+    plt.margins(0.05)
+    # plt.gca().set_facecolor('black')    #for inferno
+    plt.colorbar(im, shrink=0.8)
+    plt.savefig(filename)
+
+def make_histogram(samples: np.ndarray, bins: float) -> np.ndarray:
+    '''
+    samples: nsamp array x ndim
+    
+    Returns: bins x bins histogram
+    '''
+    h, _, _ = np.histogram2d(samples[:, 0], samples[:, 1], bins=bins, range=plot_lims_fn())
+    return h
+
+def plot_scatter(samples_list: np.ndarray, color_list: list[str], label_list: list[str], filename: str, **kwargs):
+    '''
+    samples_list: num of different groups of samples x nsamp array x ndim - list of samples
+    colors_list: num of different groups of samples - list of colors
+    label_list: num of different groups of samples - list of labels
+    filename: file system location where the histogram image is output
+    kwargs: plotting kws
+    
+    Returns: bins x bins histogram
+    '''
+
+    for i in range(len(samples_list)):
+        plt.scatter(samples_list[i][:, 0], samples_list[i][:, 1], c=color_list[i], edgecolor='none', alpha=1, s=25, label=label_list[i])
+    
+    if kwargs['title'] is not None:
+        plt.title(kwargs['title'])
+
+    plt.xlim(plot_lims_fn()[0])
+    plt.ylim(plot_lims_fn()[1])
+    plt.margins(0.05)
+    plt.savefig(filename)

@@ -120,7 +120,7 @@ fake_samples_plot = fake_samples_plot.reshape(n_gaussians_plot * n_samples_fake,
 fake_samples_plot_one = fake_samples_plot[0:n_samples_fake]
 
 # Get real samples histogram
-h_real, xedges, yedges = np.histogram2d(samples_train_plot[:, 0], samples_train_plot[:, 1], bins=xbins, range=plot_lims_fn())
+h_real, _, _ = np.histogram2d(samples_train_plot[:, 0], samples_train_plot[:, 1], bins=xbins, range=plot_lims_fn())
 
 # Get fake samples histogram
 h_fake, _, _ = np.histogram2d(fake_samples_plot[:, 0], fake_samples_plot[:, 1], bins=xbins, range=plot_lims_fn())
