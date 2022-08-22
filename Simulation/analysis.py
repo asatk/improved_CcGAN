@@ -138,6 +138,10 @@ plt.scatter(fake_samples_plot[:, 0], fake_samples_plot[:, 1], c='green', edgecol
 plt.xlim(plot_lims_fn()[0])
 plt.ylim(plot_lims_fn()[1])
 plt.margins(0.05)
+plt.grid(visible=True)
+plt.xlabel(x_axis_label)
+plt.ylabel(y_axis_label)
+plt.legend()
 plt.savefig(filename_scatter_jpg)
 
 plt.clf()
@@ -221,6 +225,18 @@ histx.SetLineWidth(2)
 histy = ROOT.TH1D("histy", "histy", ybins, ylo, yhi)
 histy.SetLineWidth(2)
 
+hist.GetXaxis().SetTitle(x_axis_label)
+hist.GetXaxis().CenterTitle(center=True)
+hist.GetYaxis().SetTitle(y_axis_label)
+hist.GetYaxis().CenterTitle(center=True)
+histx.GetXaxis().SetTitle(x_axis_label)
+histx.GetXaxis().CenterTitle(center=True)
+histx.GetYaxis().SetTitle("Events")
+histy.GetXaxis().SetTitle(y_axis_label)
+histy.GetXaxis().CenterTitle(center=True)
+histy.GetYaxis().SetTitle("Events")
+
+
 # Plot Training Samples
 for i in range(n_gaussians_plot):
     
@@ -269,7 +285,7 @@ for i in range(n_gaussians_plot):
     gaus2d.SetParameters(1., xguess, 0.075, 0.5, 0.075)
     gaus1d.SetParameters(1., xguess, 0.075)
 
-    break
+    # break
 
 # Plot Fake Samples
 for j in range(n_gaussians_plot):
@@ -319,7 +335,7 @@ for j in range(n_gaussians_plot):
     gaus2d.SetParameters(1., xguess, 0.075, 0.5, 0.075)
     gaus1d.SetParameters(1., xguess, 0.075)
 
-    break
+    # break
 
 ROOT.gStyle.SetOptFit(0)
 
@@ -335,11 +351,11 @@ meanx_real = histx_real_first.GetFunction("gaus1d").GetParameter("Mean")
 meanx_fake = histx_fake_first.GetFunction("gaus1d").GetParameter("Mean")
 
 lx_real = ROOT.TLine(meanx_real, 0.0, meanx_real, mx)
-lx_real.SetLineColor(ROOT.kRed)
+lx_real.SetLineColor(ROOT.kBlue)
 lx_real.SetLineWidth(2)
 lx_real.SetLineStyle(2)
 lx_fake = ROOT.TLine(meanx_fake, 0.0, meanx_fake, mx)
-lx_fake.SetLineColor(ROOT.kBlue)
+lx_fake.SetLineColor(ROOT.kRed)
 lx_fake.SetLineWidth(2)
 lx_fake.SetLineStyle(2)
 

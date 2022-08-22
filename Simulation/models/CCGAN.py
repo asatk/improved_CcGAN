@@ -18,26 +18,33 @@ class generator(nn.Module):
 
         self.inner_dim = 100
 
-        self.linear = nn.Sequential(
-                nn.Linear(nz+2, self.inner_dim, bias=bias_g),
+        # self.linear = nn.Linear(nz, self.inner_dim, bias=bias_g)
+
+        self.main = nn.Sequential(
+                nn.Linear(self.nz+2, self.inner_dim, bias=bias_g),
                 nn.BatchNorm1d(self.inner_dim),
-                nn.ReLU(True),
+                # nn.ReLU(True),
+                nn.LeakyReLU(inplace=True),
 
                 nn.Linear(self.inner_dim, self.inner_dim, bias=bias_g),
                 nn.BatchNorm1d(self.inner_dim),
-                nn.ReLU(True),
+                # nn.ReLU(True),
+                nn.LeakyReLU(inplace=True),
 
                 nn.Linear(self.inner_dim, self.inner_dim, bias=bias_g),
                 nn.BatchNorm1d(self.inner_dim),
-                nn.ReLU(True),
+                # nn.ReLU(True),
+                nn.LeakyReLU(inplace=True),
 
                 nn.Linear(self.inner_dim, self.inner_dim, bias=bias_g),
                 nn.BatchNorm1d(self.inner_dim),
-                nn.ReLU(True),
+                # nn.ReLU(True),
+                nn.LeakyReLU(inplace=True),
 
                 nn.Linear(self.inner_dim, self.inner_dim, bias=bias_g),
                 nn.BatchNorm1d(self.inner_dim),
-                nn.ReLU(True),
+                # nn.ReLU(True),
+                nn.LeakyReLU(inplace=True),
 
                 # nn.Linear(self.inner_dim, self.inner_dim, bias=bias_g),
                 # nn.BatchNorm1d(self.inner_dim),
@@ -46,24 +53,30 @@ class generator(nn.Module):
                 nn.Linear(self.inner_dim, self.out_dim, bias=bias_g),
             )
 
-    def forward(self, z: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+    def forward(self, z: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         z = z.reshape(-1, self.nz)
-        labels = labels.reshape(-1, 1)
+        y = y.reshape(-1, 1)
 
         if self.geo == 'line':
-            labels = recover_labels_line_1d(labels)
-            z = torch.cat((z, torch.multiply(torch.ones((len(labels), 1)), self.val), labels), 1)
-            # z = torch.cat((z, labels, torch.multiply(torch.ones((len(labels), 1)), self.val)), 1)
+            y = recover_labels_line_1d(y)
+            z = torch.cat((z, torch.multiply(torch.ones((len(y), 1)), self.val), y), 1)
+            # z = torch.cat((z, y, torch.multiply(torch.ones((len(y), 1)), self.val)), 1)
         elif self.geo == 'circle':
-            labels = labels.reshape(-1, 1)*2*np.pi
-            z = torch.cat((z, self.val*torch.sin(labels), self.val*torch.cos(labels)), 1)
+            y = y.reshape(-1, 1)*2*np.pi
+            z = torch.cat((z, self.val*torch.sin(y), self.val*torch.cos(y)), 1)
         else:
             print("Only 'line' and 'circle' geometries are implemented for this network's forward pass")
 
+        # #embed labels - NLI
+        # output = self.linear(z) + y.repeat(1, self.inner_dim)
+        # # output = output.reshape(-1, self.inner_dim)
+
         if z.is_cuda and self.ngpu > 1:
-            output = nn.parallel.data_parallel(self.linear, z, range(self.ngpu))
+            output = nn.parallel.data_parallel(self.main, z, range(self.ngpu))
+            # output = nn.parallel.data_parallel(self.main, output, range(self.ngpu))
         else:
-            output = self.linear(z)
+            output = self.main(z)
+            # output = self.main(output)
         return output
 
 #########################################################
@@ -80,42 +93,65 @@ class discriminator(nn.Module):
         self.inner_dim = 100
         self.main = nn.Sequential(
             nn.Linear(input_dim+2, self.inner_dim, bias=bias_d),
-            nn.ReLU(True),
+            # nn.Linear(input_dim, self.inner_dim, bias=bias_d),
+            # nn.ReLU(True),
+            nn.LeakyReLU(inplace=True),
 
             nn.Linear(self.inner_dim, self.inner_dim, bias=bias_d),
-            nn.ReLU(True),
+            # nn.ReLU(True),
+            nn.LeakyReLU(inplace=True),
 
             nn.Linear(self.inner_dim, self.inner_dim, bias=bias_d),
-            nn.ReLU(True),
+            # nn.ReLU(True),
+            nn.LeakyReLU(inplace=True),
 
             nn.Linear(self.inner_dim, self.inner_dim, bias=bias_d),
-            nn.ReLU(True),
+            # nn.ReLU(True),
+            nn.LeakyReLU(inplace=True),
 
             # nn.Linear(self.inner_dim, self.inner_dim, bias=bias_d),
             # nn.ReLU(True),
+            # nn.LeakyReLU(inplace=True),
 
             nn.Linear(self.inner_dim, 1, bias=bias_d),
             nn.Sigmoid()
+            # nn.Linear(self.inner_dim, self.inner_dim, bias=bias_d)
         )
 
-    def forward(self, x: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+        # self.linear1 = nn.Linear(self.inner_dim, 1, bias=bias_d)
+        # nn.init.xavier_uniform_(self.linear1.weight.data, 1.)
+        # self.linear1 = nn.utils.parametrizations.spectral_norm(self.linear1)
+
+        # self.linear2 = nn.Linear(1, self.inner_dim, bias=bias_d)
+        # nn.init.xavier_uniform_(self.linear2.weight.data, 1.)
+        # self.linear2 = nn.utils.parametrizations.spectral_norm(self.linear2)
+
+        # self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         x = x.reshape(-1, self.input_dim)
-        labels = labels.reshape(-1, 1)
+        y = y.reshape(-1, 1)
 
         if self.geo == 'line':
-            labels = recover_labels_line_1d(labels)
-            x = torch.cat((x, torch.multiply(torch.ones((len(labels), 1)), self.val), labels), 1)
-            # x = torch.cat((x, labels, torch.multiply(torch.ones((len(labels), 1)), self.val)), 1)
+            y = recover_labels_line_1d(y)
+            x = torch.cat((x, torch.multiply(torch.ones((len(y), 1)), self.val), y), 1)
+            # x = torch.cat((x, y, torch.multiply(torch.ones((len(y), 1)), self.val)), 1)
         elif self.geo == 'circle':
-            labels = labels.reshape(-1, 1)*2*np.pi
-            x = torch.cat((x, self.val*torch.sin(labels), self.val*torch.cos(labels)), 1)
+            y = y.reshape(-1, 1)*2*np.pi
+            x = torch.cat((x, self.val*torch.sin(y), self.val*torch.cos(y)), 1)
         else:
-            print("Only 'line' and 'circle' geometries are implemented for this network's forward pass")
+            print("Only 'line' and 'circle' geometries are implemented for this network's forward pass")        
 
         if x.is_cuda and self.ngpu > 1:
             output = nn.parallel.data_parallel(self.main, x, range(self.ngpu))
         else:
             output = self.main(x)
+
+        # #embed labels - NLI
+        # output = output.reshape(-1, self.inner_dim)
+        # output_y = torch.sum(output * self.linear2(y), 1, keepdim=True)
+        # output = self.sigmoid(self.linear1(output) + output_y)
+
         return output.reshape(-1, 1)
 
 if __name__ == "__main__":

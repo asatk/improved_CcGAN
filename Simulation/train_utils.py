@@ -88,10 +88,15 @@ def cov_skew(cov11: float, cov12: float, cov21: float=None, cov22: float=None) -
 def cov_change_const(labels: np.ndarray, cov: np.ndarray) -> np.ndarray:
     return np.repeat([cov], len(labels), axis=0)
 
+def cov_change_radial(labels: np.ndarray, cov: np.ndarray):
+    return [np.dot(cov, 
+        np.eye(2) * (1 + (defs.xcov_change_linear_max_factor - 1) * label[0] / defs.xmax)) for label in labels]
+
+
 def cov_change_linear(labels: np.ndarray, cov: np.ndarray) -> list[np.ndarray]:
-    return [cov * 
-        (1 + (defs.xcov_change_linear_max_factor - 1) * label[0] / defs.xmax) * 
-        (1 + (defs.ycov_change_linear_max_factor - 1) * label[1] / defs.ymax) for label in labels]
+    return [np.dot(cov, 
+        np.array([[(1 + (defs.xcov_change_linear_max_factor - 1) * label[0] / defs.xmax), 0.], 
+        [0., (1 + (defs.ycov_change_linear_max_factor - 1) * label[1] / defs.ymax)]])) for label in labels]
 
 def cov_change_skew(labels: np.ndarray, cov: np.ndarray) -> list[np.ndarray]:
     '''
