@@ -1,6 +1,3 @@
-#!/home/asatk/miniconda3/envs/py3CCGAN/bin/python
-
-from cgitb import text
 import tkinter as tk
 from tkinter import ttk
 from typing import Any, Callable, Literal

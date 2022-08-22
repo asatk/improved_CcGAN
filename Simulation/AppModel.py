@@ -1,6 +1,6 @@
-#!/home/asatk/miniconda3/envs/py3CCGAN/bin/python
-
+import asyncio
 import json
+import main
 import multiprocessing as mp
 import os
 from PIL import Image, ImageTk
@@ -9,6 +9,7 @@ import subprocess
 from typing import Any, Callable, ItemsView
 
 import defs
+from Run import Run
 
 class AppModel():
     
@@ -18,11 +19,18 @@ class AppModel():
         self.train_pars_list = list()
         self.analysis_pars_list = list()
 
+        self.processes: list[mp.Process] = []
+
         self.display_pars_cmd = None
 
     def start(self):
         mp.set_start_method('fork')
         self.current_train_pars = self.load_train_pars()
+
+    def quit(self):
+        for p in self.processes:
+            p.kill()
+        #rm shared mem?
 
     def load_analysis_pars(self, filename: str) -> ItemsView:
         '''
@@ -45,6 +53,8 @@ class AppModel():
         elif re.match("^\d+\.e*\-*\d+$", val):
             val = float(val)
         self.current_train_pars[key] = val
+        exec("defs.%s = %s"%(key, val))
+        print(eval("defs.%s"%(key)))
 
     def set_train_par(self, key: str, val: any):
         self.current_train_pars[key] = val
@@ -61,6 +71,18 @@ class AppModel():
     def train(self):
         self.display_pars_cmd(len(self.train_pars_list), self.current_train_pars)
         self.train_pars_list.append(self.current_train_pars)
+        # p = subprocess.Popen(['python', 'main.py'], bufsize=1, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        # p.wait()
+        # stdout, stderr = p.communicate()
+        # print(stdout)
+        # print(stderr)
+
+        run = Run(self.current_train_pars)
+
+        p = mp.Process(target=main.main, daemon=True, args=[run])
+        self.processes.append(p)
+        p.start()
+        # p.join()
         
         # pid = os.fork()
         # if pid == 0:
@@ -69,4 +91,6 @@ class AppModel():
         #     print("parent process - child has pid: %i"%(pid))
             # subprocess.run(["python", "main.py"])
         # p = Process()
+
+        
 
